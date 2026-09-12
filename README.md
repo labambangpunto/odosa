@@ -1,5 +1,3 @@
-# Tes saja
-**Ini adalah pengujian *lanjutan***
-_tes_
-
-Ini adalah upaya untuk menambah warna hijau wkwkw. yang penting git push bos
+# Odosa
+## Balance tracker
+sebenarnya ini adalah proyek untuk diri saya sendiri. kalau kalian suka silahkan pakai, kalau tidak lupakan saja 🙏️
