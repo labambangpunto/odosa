@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace = "com.example.odosa"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 36 //flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
