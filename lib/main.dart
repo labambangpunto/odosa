@@ -3,10 +3,11 @@ import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart' as path;
 
 import 'dart:convert';
+import 'dart:io';
 
-import 'dart:typed_data';
-
+import 'package:flutter/foundation.dart'; // Untuk kIsWeb
 import 'package:file_saver/file_saver.dart';
+import 'package:file_picker/file_picker.dart'; // Tambahan untuk fitur Import
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -85,7 +86,7 @@ class DatabaseHelper {
 
   Future<Database> _initDB(String filePath) async {
     final dbPath = await getDatabasesPath();
-    final dbLocation = path.join(dbPath, filePath); // <-- Gunakan path.join
+    final dbLocation = path.join(dbPath, filePath);
 
     return await openDatabase(dbLocation, version: 1, onCreate: _createDB);
   }
@@ -192,11 +193,9 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _exportData(String format) async {
-    // 1. Ambil semua data dari database
     final data = await DatabaseHelper.instance.readAll();
 
     if (!mounted) return;
-
     if (data.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Tidak ada data untuk diekspor')),
@@ -209,7 +208,6 @@ class _HomePageState extends State<HomePage> {
     String ext = '';
     MimeType mimeType;
 
-    // 2. Format data sesuai pilihan
     if (format == 'json') {
       List<Map<String, dynamic>> jsonData = data.map((e) => e.toMap()).toList();
       content = jsonEncode(jsonData);
@@ -221,19 +219,18 @@ class _HomePageState extends State<HomePage> {
         String tipeStr = t.tipe == TipeTransaksi.pemasukan
             ? 'Pemasukan'
             : 'Pengeluaran';
+        // Mengamankan string judul dari koma agar tidak merusak format CSV
+        String safeJudul = t.judul.replaceAll('"', '""');
         content +=
-            '${t.id},"${t.judul}",${t.jumlah},$tipeStr,${t.tanggal.toIso8601String()}\n';
+            '${t.id},"$safeJudul",${t.jumlah},$tipeStr,${t.tanggal.toIso8601String()}\n';
       }
       ext = 'csv';
       mimeType = MimeType.csv;
     }
 
-    // 3. Konversi string ke format Bytes
     Uint8List bytes = Uint8List.fromList(utf8.encode(content));
 
     try {
-      // 1. Ubah String? menjadi String
-      // 2. Ubah ext: menjadi customExtension:
       String path = await FileSaver.instance.saveFile(
         name: '$fileName.$ext',
         bytes: bytes,
@@ -241,8 +238,6 @@ class _HomePageState extends State<HomePage> {
       );
 
       if (!mounted) return;
-
-      // 3. Hapus pengecekan 'path != null &&'
       if (path.isNotEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -257,6 +252,111 @@ class _HomePageState extends State<HomePage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Gagal menyimpan file: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  // --- FITUR BARU: IMPORT DATA ---
+  Future<void> _importData() async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['json', 'csv'],
+      );
+
+      if (result != null) {
+        String content = '';
+        String extension = result.files.single.extension?.toLowerCase() ?? '';
+
+        // Menangani Web dan platform lainnya
+        if (kIsWeb) {
+          content = utf8.decode(result.files.single.bytes!);
+        } else {
+          File file = File(result.files.single.path!);
+          content = await file.readAsString();
+        }
+
+        int countAdded = 0;
+
+        if (extension == 'json') {
+          List<dynamic> jsonData = jsonDecode(content);
+          for (var item in jsonData) {
+            final transaksi = Transaksi(
+              judul: item['judul'],
+              jumlah: (item['jumlah'] as num).toDouble(),
+              tipe: item['tipe'] == 1
+                  ? TipeTransaksi.pemasukan
+                  : TipeTransaksi.pengeluaran,
+              tanggal: DateTime.parse(item['tanggal']),
+            );
+            await DatabaseHelper.instance.insert(transaksi);
+            countAdded++;
+          }
+        } else if (extension == 'csv') {
+          // Parsing CSV Sederhana
+          List<String> lines = const LineSplitter().convert(content);
+          if (lines.isNotEmpty) {
+            int startIndex = lines[0].toLowerCase().contains('judul') ? 1 : 0;
+
+            for (int i = startIndex; i < lines.length; i++) {
+              if (lines[i].trim().isEmpty) continue;
+
+              List<String> row = [];
+              bool inQuotes = false;
+              StringBuffer buffer = StringBuffer();
+
+              for (int j = 0; j < lines[i].length; j++) {
+                String char = lines[i][j];
+                if (char == '"') {
+                  inQuotes = !inQuotes;
+                } else if (char == ',' && !inQuotes) {
+                  row.add(buffer.toString());
+                  buffer.clear();
+                } else {
+                  buffer.write(char);
+                }
+              }
+              row.add(buffer.toString());
+
+              if (row.length >= 5) {
+                final double jumlah = double.tryParse(row[2]) ?? 0;
+                final bool isPemasukan = row[3].toLowerCase().contains(
+                  'pemasukan',
+                );
+                final DateTime tanggal =
+                    DateTime.tryParse(row[4]) ?? DateTime.now();
+
+                final transaksi = Transaksi(
+                  judul: row[1],
+                  jumlah: jumlah,
+                  tipe: isPemasukan
+                      ? TipeTransaksi.pemasukan
+                      : TipeTransaksi.pengeluaran,
+                  tanggal: tanggal,
+                );
+                await DatabaseHelper.instance.insert(transaksi);
+                countAdded++;
+              }
+            }
+          }
+        }
+
+        _refreshData();
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Berhasil mengimpor $countAdded transaksi!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Gagal mengimpor file: Pastikan format sesuai.'),
           backgroundColor: Colors.red,
         ),
       );
@@ -284,13 +384,29 @@ class _HomePageState extends State<HomePage> {
         centerTitle: true,
         actions: [
           PopupMenuButton<String>(
-            onSelected: (value) => _exportData(value),
+            onSelected: (value) {
+              if (value == 'export_csv') {
+                _exportData('csv');
+              } else if (value == 'export_json') {
+                _exportData('json');
+              } else if (value == 'import') {
+                _importData();
+              }
+            },
             itemBuilder: (context) => [
               const PopupMenuItem(
-                value: 'csv',
+                value: 'export_csv',
                 child: Text('Export ke CSV (Excel)'),
               ),
-              const PopupMenuItem(value: 'json', child: Text('Export ke JSON')),
+              const PopupMenuItem(
+                value: 'export_json',
+                child: Text('Export ke JSON'),
+              ),
+              const PopupMenuDivider(),
+              const PopupMenuItem(
+                value: 'import',
+                child: Text('Import Data (JSON/CSV)'),
+              ),
             ],
           ),
         ],
@@ -305,7 +421,7 @@ class _HomePageState extends State<HomePage> {
                   child: _daftarTransaksi.isEmpty
                       ? const Center(
                           child: Text(
-                            'Belum ada transaksi.\nTekan tombol + untuk menambah.',
+                            'Belum ada transaksi.\nTekan tombol + untuk menambah\natau Import dari menu.',
                             textAlign: TextAlign.center,
                             style: TextStyle(color: Colors.grey),
                           ),
@@ -482,7 +598,6 @@ class _FormTambahTransaksiState extends State<FormTambahTransaksi> {
 
   @override
   Widget build(BuildContext context) {
-    // Widget Form tetap sama seperti aslinya
     return Padding(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -511,29 +626,37 @@ class _FormTambahTransaksiState extends State<FormTambahTransaksi> {
             ),
           ),
           const SizedBox(height: 12),
-          // Hapus RadioGroup bawaan dan ganti manual jika RadioGroup tidak dikenali di Flutter versi tertentu
-          RadioGroup<TipeTransaksi>(
-            groupValue: _tipeTerpilih,
-            onChanged: (value) {
-              setState(() => _tipeTerpilih = value!);
-            },
-            child: Row(
-              children: const [
-                Expanded(
-                  child: RadioListTile<TipeTransaksi>(
-                    title: Text('Pemasukan'),
-                    value: TipeTransaksi.pemasukan,
-                  ),
+
+          // Memperbaiki layout Radio Button menggunakan Row tanpa memanggil RadioGroup yang tidak tersedia
+          Row(
+            children: [
+              Expanded(
+                child: RadioListTile<TipeTransaksi>(
+                  title: const Text('Pemasukan'),
+                  value: TipeTransaksi.pemasukan,
+                  // ignore: deprecated_member_use
+                  groupValue: _tipeTerpilih,
+                  // ignore: deprecated_member_use
+                  onChanged: (value) {
+                    setState(() => _tipeTerpilih = value!);
+                  },
                 ),
-                Expanded(
-                  child: RadioListTile<TipeTransaksi>(
-                    title: Text('Pengeluaran'),
-                    value: TipeTransaksi.pengeluaran,
-                  ),
+              ),
+              Expanded(
+                child: RadioListTile<TipeTransaksi>(
+                  title: const Text('Pengeluaran'),
+                  value: TipeTransaksi.pengeluaran,
+                  // ignore: deprecated_member_use
+                  groupValue: _tipeTerpilih,
+                  // ignore: deprecated_member_use
+                  onChanged: (value) {
+                    setState(() => _tipeTerpilih = value!);
+                  },
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
+
           const SizedBox(height: 16),
           ElevatedButton(
             onPressed: _simpan,
