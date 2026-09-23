@@ -3,7 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../providers/account_provider.dart';
 import '../../data/repositories/account_repository.dart';
-import '../../providers/sync_provider.dart'; // Tambahkan impor ini
+import '../../providers/sync_provider.dart';
+import '../../providers/export_provider.dart';
+import 'transaction_form_screen.dart';
+import 'debt_screen.dart';
+import 'transaction_history_screen.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -14,15 +18,53 @@ class HomeScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Daftar Akun & Dompet'),
+        title: const Text('Daftar Dompet/Bank'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.people_alt),
+            tooltip: 'Utang & Piutang',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const DebtScreen()),
+              );
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.download),
+            tooltip: 'Ekspor ke CSV',
+            onPressed: () async {
+              final scaffoldMessenger = ScaffoldMessenger.of(context);
+              scaffoldMessenger.showSnackBar(
+                const SnackBar(content: Text('Mengekspor data...')),
+              );
+
+              try {
+                final exportService = ref.read(exportServiceProvider);
+                final filePath = await exportService.exportTransactionsToCSV();
+
+                if (context.mounted) {
+                  scaffoldMessenger.showSnackBar(
+                    SnackBar(content: Text('Berhasil diekspor ke: $filePath')),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  scaffoldMessenger.showSnackBar(
+                    SnackBar(
+                      content: Text('Ekspor gagal: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.cloud_upload),
             tooltip: 'Sinkronisasi Google Drive',
             onPressed: () async {
-              // Menyimpan referensi ScaffoldMessenger sebelum fungsi async
               final scaffoldMessenger = ScaffoldMessenger.of(context);
-
               scaffoldMessenger.showSnackBar(
                 const SnackBar(content: Text('Memulai sinkronisasi...')),
               );
@@ -54,7 +96,7 @@ class HomeScreen extends ConsumerWidget {
         data: (accounts) {
           if (accounts.isEmpty) {
             return const Center(
-              child: Text('Belum ada data. Silakan tambah akun.'),
+              child: Text('Belum ada data. Silakan tambah dompet/bank.'),
             );
           }
           return ListView.builder(
@@ -74,7 +116,13 @@ class HomeScreen extends ConsumerWidget {
                   ),
                 ),
                 onTap: () {
-                  // TODO: Navigasi ke detail riwayat transaksi akun spesifik
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) =>
+                          TransactionHistoryScreen(account: account),
+                    ),
+                  );
                 },
               );
             },
@@ -84,9 +132,28 @@ class HomeScreen extends ConsumerWidget {
         error: (error, stack) =>
             Center(child: Text('Terjadi kesalahan: $error')),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showAddAccountDialog(context, ref),
-        child: const Icon(Icons.add),
+      floatingActionButton: Column(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          FloatingActionButton.small(
+            heroTag: 'add_account',
+            onPressed: () => _showAddAccountDialog(context, ref),
+            child: const Icon(Icons.account_balance_wallet),
+          ),
+          const SizedBox(height: 16),
+          FloatingActionButton(
+            heroTag: 'add_transaction',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const TransactionFormScreen(),
+                ),
+              );
+            },
+            child: const Icon(Icons.add),
+          ),
+        ],
       ),
     );
   }
@@ -98,7 +165,7 @@ class HomeScreen extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Tambah Akun Baru'),
+        title: const Text('Tambah Dompet/Bank Baru'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [

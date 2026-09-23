@@ -120,4 +120,16 @@ class TransactionRepository {
           .replace(toAccount.copyWith(balance: toAccount.balance + amount));
     });
   }
+
+  // Tambahkan fungsi ini di dalam class TransactionRepository
+  Stream<List<Transaction>> watchTransactionsByAccount(int accountId) {
+    return (_db.select(_db.transactions)
+          ..where(
+            (t) =>
+                t.fromAccountId.equals(accountId) |
+                t.toAccountId.equals(accountId),
+          )
+          ..orderBy([(t) => drift.OrderingTerm.desc(t.date)]))
+        .watch();
+  }
 }
