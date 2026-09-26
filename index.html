@@ -3,10 +3,15 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>FinTrack — Personal Financial Tracker</title>
+    <title>Odosa — Personal Financial Tracker</title>
     <meta
       name="description"
-      content="FinTrack adalah aplikasi personal financial tracker untuk Linux dan Android. Sync via Google Drive, backup JSON, catat utang-piutang. Unduh gratis hanya di GitHub Releases."
+      content="Odosa adalah aplikasi personal financial tracker untuk Linux dan Android. Sync via Google Drive, backup JSON, catat utang-piutang. Unduh gratis hanya di GitHub Releases."
+    />
+    <link
+      rel="icon"
+      type="image/svg+xml"
+      href="./media/odosa-icon-rounded.svg"
     />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -960,7 +965,6 @@
         line-height: 1.68;
       }
 
-      /* ---------- MAIN feature card (highlighted) ---------- */
       .fcard-main {
         padding: clamp(30px, 3.6vw, 42px) clamp(26px, 3.4vw, 38px)
           clamp(28px, 3.2vw, 36px);
@@ -1010,7 +1014,6 @@
         max-width: 44ch;
       }
 
-      /* "Utama" badge */
       .fcard-badge {
         position: absolute;
         top: 20px;
@@ -1039,7 +1042,6 @@
         stroke-linejoin: round;
       }
 
-      /* small chip row inside main card */
       .fcard-chips {
         display: flex;
         flex-wrap: wrap;
@@ -1058,143 +1060,142 @@
       }
 
       /* ============================================================
-   SHOWCASE
+   SHOWCASE  —  real screenshots (1080x2400)
    ============================================================ */
       .showcase {
         display: grid;
         grid-template-columns: repeat(3, 1fr);
-        gap: 22px;
-        align-items: end;
+        gap: 26px;
+        align-items: start;
       }
+
       .shot {
         border-radius: var(--r-lg);
-        padding: 18px;
+        padding: 16px;
         background: var(--surface);
         border: 1px solid var(--border);
         transition:
           transform 0.5s var(--ease-spring),
           border-color 0.35s,
-          box-shadow 0.45s;
+          box-shadow 0.45s var(--ease-out);
+        position: relative;
+        overflow: hidden;
+      }
+      .shot::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: var(--gradient-soft);
+        opacity: 0;
+        transition: opacity 0.45s var(--ease-out);
+        pointer-events: none;
       }
       .shot:hover {
         transform: translateY(-8px);
         border-color: var(--border-strong);
         box-shadow: var(--shadow);
       }
-      .shot:nth-child(2) {
-        transform: translateY(-24px);
+      .shot:hover::before {
+        opacity: 1;
       }
-      .shot:nth-child(2):hover {
-        transform: translateY(-32px);
+      .shot > * {
+        position: relative;
+        z-index: 1;
       }
 
+      /* stagger tengah naik sedikit */
+      .shot:nth-child(2) {
+        transform: translateY(-26px);
+      }
+      .shot:nth-child(2):hover {
+        transform: translateY(-34px);
+      }
+      .shot:nth-child(3) {
+        transform: translateY(-13px);
+      }
+      .shot:nth-child(3):hover {
+        transform: translateY(-21px);
+      }
+
+      /* header label */
       .shot-top {
         display: flex;
         align-items: center;
         gap: 11px;
-        margin-bottom: 16px;
+        margin-bottom: 14px;
       }
-      .shot-ic {
-        width: 40px;
-        height: 40px;
-        border-radius: 14px;
-        background: var(--gradient);
-        display: grid;
-        place-items: center;
-        flex: none;
-      }
-      .shot-ic svg {
-        width: 19px;
-        height: 19px;
-        stroke: #fff;
-        fill: none;
-        stroke-width: 2.1;
-        stroke-linecap: round;
-        stroke-linejoin: round;
-      }
-      .shot h4 {
-        font-size: 0.97rem;
-        font-weight: 660;
-        letter-spacing: -0.02em;
-      }
-      .shot span {
-        font-size: 0.76rem;
-        color: var(--text-faint);
-      }
-
-      .shot-body {
-        border-radius: 22px;
-        background: var(--surface-2);
-        border: 1px solid var(--border);
-        padding: 16px;
-        display: flex;
-        flex-direction: column;
-        gap: 11px;
-      }
-
-      .mock-line {
-        height: 9px;
-        border-radius: var(--r-full);
-        background: var(--surface-3);
-      }
-      .mock-line.w70 {
-        width: 70%;
-      }
-      .mock-line.w45 {
-        width: 45%;
-      }
-      .mock-line.w85 {
-        width: 85%;
-      }
-      .mock-line.grad {
-        background: var(--gradient);
-        height: 11px;
-      }
-
-      .mock-ring {
-        width: 96px;
-        height: 96px;
-        border-radius: 50%;
-        margin: 6px auto;
-        background: conic-gradient(
-          var(--grad-a) 0% 34%,
-          var(--grad-b) 34% 78%,
-          var(--surface-3) 78% 100%
-        );
-        display: grid;
-        place-items: center;
-        position: relative;
-      }
-      .mock-ring::after {
-        content: "78%";
-        position: absolute;
-        inset: 11px;
-        border-radius: 50%;
-        background: var(--surface-2);
-        display: grid;
-        place-items: center;
-        font-size: 1.05rem;
-        font-weight: 730;
-        letter-spacing: -0.03em;
-        color: var(--text);
-      }
-
-      .mock-bar-row {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-      }
-      .mock-bar-row .mock-line {
-        flex: 1;
-      }
-      .mock-pill {
-        font-size: 0.66rem;
-        font-weight: 650;
-        padding: 4px 10px;
-        border-radius: var(--r-full);
+      .shot-num {
+        width: 34px;
+        height: 34px;
+        border-radius: 12px;
         background: var(--gradient);
         color: #fff;
-        white-space: nowrap;
+        display: grid;
+        place-items: center;
+        font-size: 0.82rem;
+        font-weight: 700;
+        flex: none;
+        box-shadow: 0 10px 24px -12px rgba(28, 105, 255, 0.9);
+      }
+      .shot-top h4 {
+        font-size: 0.95rem;
+        font-weight: 670;
+        letter-spacing: -0.02em;
+        line-height: 1.25;
+      }
+      .shot-top span {
+        display: block;
+        font-size: 0.73rem;
+        color: var(--text-faint);
+        font-weight: 500;
+        margin-top: 1px;
+      }
+
+      /* phone-frame untuk screenshot portrait 9:20 */
+      .shot-frame {
+        position: relative;
+        border-radius: 26px;
+        padding: 8px;
+        background: linear-gradient(160deg, #1a2433, #0a0f16);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow:
+          0 34px 60px -30px rgba(20, 80, 220, 0.55),
+          0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+        overflow: hidden;
+      }
+      [data-theme="light"] .shot-frame {
+        background: linear-gradient(160deg, #dbe7fb, #b8cdf0);
+        border-color: rgba(20, 60, 140, 0.14);
+        box-shadow:
+          0 34px 60px -32px rgba(20, 80, 220, 0.35),
+          0 0 0 1px rgba(20, 60, 140, 0.05) inset;
+      }
+      .shot-frame::before {
+        content: "";
+        position: absolute;
+        top: 14px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 64px;
+        height: 18px;
+        border-radius: var(--r-full);
+        background: #05080c;
+        z-index: 3;
+        pointer-events: none;
+      }
+      [data-theme="light"] .shot-frame::before {
+        background: #0a1523;
+      }
+
+      .shot-frame img {
+        display: block;
+        width: 100%;
+        height: auto;
+        aspect-ratio: 1080 / 2400;
+        border-radius: 20px;
+        object-fit: cover;
+        object-position: top center;
+        background: #080d14;
       }
 
       /* ============================================================
@@ -1270,11 +1271,137 @@
         justify-content: center;
         flex-wrap: wrap;
         gap: 14px;
-        margin-bottom: 40px;
+        margin-bottom: 34px;
       }
       .btn-lg {
         padding: 18px 36px;
         font-size: 1rem;
+      }
+
+      /* ---------- DIRECT DOWNLOAD ROW ---------- */
+      .direct-dl {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+        max-width: 820px;
+        margin: 0 auto 40px;
+        text-align: left;
+      }
+      .dl-option {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 16px 18px;
+        border-radius: var(--r-md);
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        position: relative;
+        overflow: hidden;
+        transition:
+          transform 0.35s var(--ease-spring),
+          border-color 0.3s,
+          box-shadow 0.4s var(--ease-out),
+          background 0.3s;
+      }
+      .dl-option::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: var(--gradient-soft);
+        opacity: 0;
+        transition: opacity 0.4s var(--ease-out);
+        pointer-events: none;
+      }
+      .dl-option:hover {
+        transform: translateY(-4px);
+        border-color: var(--border-strong);
+        box-shadow: var(--shadow);
+      }
+      .dl-option:hover::before {
+        opacity: 1;
+      }
+      .dl-option > * {
+        position: relative;
+        z-index: 1;
+      }
+
+      .dl-option-ic {
+        width: 44px;
+        height: 44px;
+        border-radius: 15px;
+        background: var(--gradient);
+        display: grid;
+        place-items: center;
+        flex: none;
+        box-shadow: 0 12px 26px -12px rgba(28, 105, 255, 0.9);
+        transition:
+          transform 0.5s var(--ease-spring),
+          border-radius 0.5s var(--ease-spring);
+      }
+      .dl-option:hover .dl-option-ic {
+        transform: scale(1.07) rotate(-5deg);
+        border-radius: 18px;
+      }
+      .dl-option-ic svg {
+        width: 21px;
+        height: 21px;
+        stroke: #fff;
+        fill: none;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
+      .dl-option-info {
+        flex: 1;
+        min-width: 0;
+      }
+      .dl-option-info strong {
+        display: block;
+        font-size: 0.95rem;
+        font-weight: 670;
+        letter-spacing: -0.02em;
+        margin-bottom: 3px;
+      }
+      .dl-option-info span {
+        display: block;
+        font-size: 0.74rem;
+        color: var(--text-faint);
+        font-family: "Google Sans Flex", ui-monospace, monospace;
+        word-break: break-all;
+        line-height: 1.45;
+      }
+
+      .dl-option-arrow {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        background: var(--surface-3);
+        border: 1px solid var(--border);
+        display: grid;
+        place-items: center;
+        flex: none;
+        transition:
+          transform 0.4s var(--ease-spring),
+          background 0.35s,
+          border-color 0.35s;
+      }
+      .dl-option-arrow svg {
+        width: 16px;
+        height: 16px;
+        stroke: var(--text);
+        fill: none;
+        stroke-width: 2.2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .dl-option:hover .dl-option-arrow {
+        background: var(--gradient);
+        border-color: transparent;
+        transform: translateY(3px);
+      }
+      .dl-option:hover .dl-option-arrow svg {
+        stroke: #fff;
       }
 
       .dl-steps {
@@ -1326,7 +1453,7 @@
       }
 
       /* ============================================================
-   PLATFORMS  (Linux + Android only)
+   PLATFORMS
    ============================================================ */
       .platforms {
         display: grid;
@@ -1429,6 +1556,7 @@
         flex-wrap: wrap;
         gap: 7px;
       }
+
       .tag {
         display: inline-flex;
         align-items: center;
@@ -1451,10 +1579,20 @@
         stroke-linecap: round;
         stroke-linejoin: round;
       }
-      .tag.primary {
-        background: var(--gradient);
-        border-color: transparent;
-        color: #fff;
+
+      a.tag {
+        cursor: pointer;
+        transition:
+          transform 0.32s var(--ease-spring),
+          box-shadow 0.32s var(--ease-out),
+          filter 0.3s;
+      }
+      a.tag:hover {
+        transform: translateY(-2px);
+      }
+
+      a.tag:active {
+        transform: translateY(0) scale(0.97);
       }
 
       .plat-soon {
@@ -1530,15 +1668,22 @@
           grid-template-columns: repeat(2, 1fr);
         }
         .showcase {
-          grid-template-columns: 1fr;
-          max-width: 460px;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 18px;
+          max-width: 100%;
           margin-inline: auto;
         }
         .shot:nth-child(2) {
-          transform: none;
+          transform: translateY(-18px);
         }
         .shot:nth-child(2):hover {
-          transform: translateY(-8px);
+          transform: translateY(-26px);
+        }
+        .shot:nth-child(3) {
+          transform: translateY(-9px);
+        }
+        .shot:nth-child(3):hover {
+          transform: translateY(-17px);
         }
         .stats {
           grid-template-columns: repeat(2, 1fr);
@@ -1548,9 +1693,29 @@
         }
       }
 
+      @media (max-width: 760px) {
+        .showcase {
+          grid-template-columns: 1fr;
+          max-width: 380px;
+          gap: 36px;
+        }
+        .shot:nth-child(2),
+        .shot:nth-child(3) {
+          transform: none;
+        }
+        .shot:nth-child(2):hover,
+        .shot:nth-child(3):hover {
+          transform: translateY(-8px);
+        }
+      }
+
       @media (max-width: 640px) {
         .features-sub {
           grid-template-columns: 1fr;
+        }
+        .direct-dl {
+          grid-template-columns: 1fr;
+          margin-bottom: 32px;
         }
         .dl-steps {
           grid-template-columns: 1fr;
@@ -1608,7 +1773,7 @@
               />
             </svg>
           </span>
-          FinTrack
+          Odosa
         </a>
 
         <div class="nav-links">
@@ -1635,12 +1800,7 @@
               />
             </svg>
           </button>
-          <a
-            href="https://github.com/fintrack-app/fintrack/releases/latest"
-            target="_blank"
-            rel="noopener"
-            class="btn btn-primary btn-sm"
-          >
+          <a href="#unduh" class="btn btn-primary btn-sm">
             <svg viewBox="0 0 24 24">
               <path d="M12 3v12" />
               <path d="m7 11 5 5 5-5" />
@@ -1667,26 +1827,20 @@
           </h1>
 
           <p class="hero-sub reveal" style="--d: 0.12s">
-            FinTrack mencatat pemasukan, pengeluaran, utang-piutang, dan saldo
-            per akun — lengkap dengan grafik yang jernih. Sinkronkan otomatis
-            lewat
+            Odosa mencatat pemasukan, pengeluaran, utang-piutang, dan saldo per
+            akun — lengkap dengan grafik yang jernih. Sinkronkan otomatis lewat
             <strong>Google Drive</strong> agar datamu aman dan tetap bisa
             diakses dari <strong>Linux</strong> maupun <strong>Android</strong>.
           </p>
 
           <div class="hero-cta reveal" style="--d: 0.18s">
-            <a
-              href="https://github.com/fintrack-app/fintrack/releases/latest"
-              target="_blank"
-              rel="noopener"
-              class="btn btn-primary"
-            >
+            <a href="#unduh" class="btn btn-primary">
               <svg viewBox="0 0 24 24">
                 <path d="M12 3v12" />
                 <path d="m7 11 5 5 5-5" />
                 <path d="M4 20h16" />
               </svg>
-              Unduh di GitHub Releases
+              Unduh Odosa
             </a>
             <a href="#fitur" class="btn btn-tonal">
               Lihat Fitur
@@ -1731,9 +1885,9 @@
                 <div class="app-row">
                   <div>
                     <div class="app-hello">Selamat pagi,</div>
-                    <div class="app-name">Andi Pratama</div>
+                    <div class="app-name">Bambang</div>
                   </div>
-                  <div class="app-avatar">AP</div>
+                  <div class="app-avatar">BBG</div>
                 </div>
 
                 <div class="balance-card">
@@ -1840,7 +1994,7 @@
             Dua fitur utama, <span class="grad-text">empat pendukung</span>
           </h2>
           <p class="sec-desc reveal" style="--d: 0.12s">
-            FinTrack dibangun di atas dua pilar: sinkronisasi cloud lewat Google
+            Odosa dibangun di atas dua pilar: sinkronisasi cloud lewat Google
             Drive dan backup JSON yang bisa dibawa ke mana saja. Sisanya
             melengkapi pencatatan harianmu.
           </p>
@@ -1984,7 +2138,7 @@
       </div>
     </section>
 
-    <!-- ================= TAMPILAN ================= -->
+    <!-- ================= TAMPILAN (screenshots asli) ================= -->
     <section class="section-pad" id="tampilan" style="padding-top: 0">
       <div class="wrap">
         <div class="sec-head">
@@ -1995,88 +2149,71 @@
           </h2>
           <p class="sec-desc reveal" style="--d: 0.12s">
             Desain Material Expressive dengan sudut membulat, warna gradasi khas
-            FinTrack, dan hierarki informasi yang jelas di setiap layar.
+            Odosa, dan hierarki informasi yang jelas di setiap layar. Berikut
+            tampilan asli aplikasinya.
           </p>
         </div>
 
         <div class="showcase">
-          <div class="shot reveal">
-            <div class="shot-top">
-              <div class="shot-ic">
-                <svg viewBox="0 0 24 24">
-                  <path d="M4 20V11" />
-                  <path d="M10 20V4" />
-                  <path d="M16 20v-6" />
-                  <path d="M22 20H2" />
-                </svg>
-              </div>
+          <figure class="shot reveal">
+            <figcaption class="shot-top">
+              <span class="shot-num">1</span>
               <div>
                 <h4>Ringkasan Bulanan</h4>
                 <span>Dashboard utama</span>
               </div>
+            </figcaption>
+            <div class="shot-frame">
+              <img
+                src="./media/screenshot/image-1.png"
+                alt="Odosa — Dashboard ringkasan bulanan"
+                loading="lazy"
+                decoding="async"
+                width="1080"
+                height="2400"
+              />
             </div>
-            <div class="shot-body">
-              <div class="mock-line grad" style="width: 60%"></div>
-              <div class="mock-line w85"></div>
-              <div class="mock-line w45"></div>
-              <div class="mock-line w70"></div>
-            </div>
-          </div>
+          </figure>
 
-          <div class="shot reveal" style="--d: 0.08s">
-            <div class="shot-top">
-              <div class="shot-ic">
-                <svg viewBox="0 0 24 24">
-                  <circle cx="12" cy="12" r="9" />
-                  <circle cx="12" cy="12" r="4.6" />
-                  <circle cx="12" cy="12" r="1" />
-                </svg>
-              </div>
+          <figure class="shot reveal" style="--d: 0.08s">
+            <figcaption class="shot-top">
+              <span class="shot-num">2</span>
               <div>
-                <h4>Saldo per Akun</h4>
-                <span>Multi-akun</span>
+                <h4>Grafik &amp; Saldo per Akun</h4>
+                <span>Visualisasi keuangan</span>
               </div>
+            </figcaption>
+            <div class="shot-frame">
+              <img
+                src="./media/screenshot/image-2.png"
+                alt="Odosa — Grafik dan saldo per akun"
+                loading="lazy"
+                decoding="async"
+                width="1080"
+                height="2400"
+              />
             </div>
-            <div class="shot-body">
-              <div class="mock-ring"></div>
-              <div class="mock-line w70" style="margin-inline: auto"></div>
-              <div class="mock-line w45" style="margin-inline: auto"></div>
-            </div>
-          </div>
+          </figure>
 
-          <div class="shot reveal" style="--d: 0.16s">
-            <div class="shot-top">
-              <div class="shot-ic">
-                <svg viewBox="0 0 24 24">
-                  <path d="M4 7h16" />
-                  <path d="M4 12h16" />
-                  <path d="M4 17h10" />
-                </svg>
-              </div>
+          <figure class="shot reveal" style="--d: 0.16s">
+            <figcaption class="shot-top">
+              <span class="shot-num">3</span>
               <div>
                 <h4>Utang &amp; Piutang</h4>
                 <span>Riwayat lengkap</span>
               </div>
+            </figcaption>
+            <div class="shot-frame">
+              <img
+                src="./media/screenshot/image-3.png"
+                alt="Odosa — Halaman utang dan piutang"
+                loading="lazy"
+                decoding="async"
+                width="1080"
+                height="2400"
+              />
             </div>
-            <div class="shot-body">
-              <div class="mock-bar-row">
-                <span class="mock-pill">Budi</span>
-                <div class="mock-line"></div>
-              </div>
-              <div class="mock-bar-row">
-                <span class="mock-pill">Sinta</span>
-                <div class="mock-line"></div>
-              </div>
-              <div class="mock-bar-row">
-                <span class="mock-pill">Kantor</span>
-                <div class="mock-line"></div>
-              </div>
-              <div class="mock-bar-row">
-                <span class="mock-pill">Lunas</span>
-                <div class="mock-line"></div>
-              </div>
-            </div>
-          </div>
+          </figure>
         </div>
       </div>
     </section>
@@ -2095,34 +2232,80 @@
           </div>
 
           <h2 class="dl-title">
-            Unduh <span class="grad-text">FinTrack</span> sekarang
+            Unduh <span class="grad-text">Odosa</span> sekarang
           </h2>
 
           <p class="dl-desc">
-            FinTrack hanya tersedia untuk <strong>Linux</strong> dan
+            Odosa hanya tersedia untuk <strong>Linux</strong> dan
             <strong>Android</strong>. Tidak ada di Play Store, App Store, maupun
             Microsoft Store — semua versi rilis dipublikasikan langsung di
             halaman GitHub Releases agar selalu transparan dan bebas dari
             bloatware.
           </p>
 
+          <!-- ============ DIRECT DOWNLOAD LINKS ============ -->
+          <div class="direct-dl">
+            <!-- Linux Tarball -->
+            <a
+              href="https://github.com/labambangpunto/odosa"
+              class="dl-option"
+              download
+              rel="noopener"
+            >
+              <span class="dl-option-ic">
+                <svg viewBox="0 0 24 24">
+                  <path
+                    d="M12 3c-2.2 0-3.6 1.6-3.6 3.8 0 1.2.2 2 .2 2.8 0 .9-1.1 1.6-1.8 3-.6 1.2-1.3 3-1.3 4.2 0 1 .5 1.7 1.3 1.9.4.1.8.1 1.3-.2.6-.3 1-1 1.6-1.4.7-.4 1.5-.6 2.3-.6s1.6.2 2.3.6c.6.4 1 1.1 1.6 1.4.5.3.9.3 1.3.2.8-.2 1.3-.9 1.3-1.9 0-1.2-.7-3-1.3-4.2-.7-1.4-1.8-2.1-1.8-3 0-.8.2-1.6.2-2.8C15.6 4.6 14.2 3 12 3Z"
+                  />
+                  <path d="M10.2 7.6v.01M13.8 7.6v.01" />
+                  <path d="M10.8 10.2c.4.4 1 .6 1.2.6s.8-.2 1.2-.6" />
+                </svg>
+              </span>
+              <span class="dl-option-info">
+                <strong>Download untuk Linux</strong>
+                <span>Odosa-linux-x86_64.tar.gz</span>
+              </span>
+              <span class="dl-option-arrow">
+                <svg viewBox="0 0 24 24">
+                  <path d="M12 4v12" />
+                  <path d="m7 11 5 5 5-5" />
+                  <path d="M5 20h14" />
+                </svg>
+              </span>
+            </a>
+
+            <!-- Android APK -->
+            <a
+              href="https://github.com/labambangpunto/odosa"
+              class="dl-option"
+              download
+              rel="noopener"
+            >
+              <span class="dl-option-ic">
+                <svg viewBox="0 0 24 24">
+                  <rect x="6" y="3" width="12" height="18" rx="3" />
+                  <path d="M11 18h2" />
+                  <path d="M10 7h4" />
+                </svg>
+              </span>
+              <span class="dl-option-info">
+                <strong>Download untuk Android</strong>
+                <span>Odosa-android.apk</span>
+              </span>
+              <span class="dl-option-arrow">
+                <svg viewBox="0 0 24 24">
+                  <path d="M12 4v12" />
+                  <path d="m7 11 5 5 5-5" />
+                  <path d="M5 20h14" />
+                </svg>
+              </span>
+            </a>
+          </div>
+
           <div class="dl-cta">
             <a
-              href="https://github.com/fintrack-app/fintrack/releases/latest"
-              target="_blank"
-              rel="noopener"
-              class="btn btn-primary btn-lg"
-            >
-              <svg viewBox="0 0 24 24">
-                <path d="M12 3v12" />
-                <path d="m7 11 5 5 5-5" />
-                <path d="M4 20h16" />
-              </svg>
-              Download Latest Release
-            </a>
-            <a
-              href="https://github.com/fintrack-app/fintrack/releases"
-              target="_blank"
+              href="https://github.com/labambangpunto/odosa"
+              target="_self"
               rel="noopener"
               class="btn btn-tonal btn-lg"
             >
@@ -2130,11 +2313,11 @@
                 <path d="M12 8v5l3 2" />
                 <circle cx="12" cy="12" r="9" />
               </svg>
-              Lihat Semua Versi
+              Lihat Semua Versi di GitHub
             </a>
           </div>
 
-          <!-- ============ PLATFORM CARDS: Linux & Android ============ -->
+          <!-- ============ PLATFORM CARDS ============ -->
           <div class="platforms">
             <!-- LINUX -->
             <div class="plat-card reveal">
@@ -2187,14 +2370,6 @@
                   >.
                 </p>
                 <div class="plat-tags">
-                  <span class="tag primary">
-                    <svg viewBox="0 0 24 24">
-                      <path d="M12 3v12" />
-                      <path d="m7 11 5 5 5-5" />
-                      <path d="M4 20h16" />
-                    </svg>
-                    fintrack-linux-x86_64.tar.gz
-                  </span>
                   <span class="tag">x86_64</span>
                   <span class="tag">Portable</span>
                 </div>
@@ -2219,14 +2394,6 @@
                   perangkatmu.
                 </p>
                 <div class="plat-tags">
-                  <span class="tag primary">
-                    <svg viewBox="0 0 24 24">
-                      <path d="M12 3v12" />
-                      <path d="m7 11 5 5 5-5" />
-                      <path d="M4 20h16" />
-                    </svg>
-                    fintrack-android.apk
-                  </span>
                   <span class="tag">Android 8.0+</span>
                   <span class="tag">arm64 · x86_64</span>
                 </div>
@@ -2239,20 +2406,20 @@
             <div class="step reveal">
               <div class="step-num">1</div>
               <div>
-                <h4>Buka halaman Releases</h4>
+                <h4>Pilih berkas sesuai platform</h4>
                 <p>
-                  Klik tombol unduh di atas untuk membuka repo GitHub FinTrack
-                  dan lihat rilis terbaru.
+                  Klik tombol unduh Linux atau Android di atas — tautan langsung
+                  ke rilis terbaru.
                 </p>
               </div>
             </div>
             <div class="step reveal" style="--d: 0.08s">
               <div class="step-num">2</div>
               <div>
-                <h4>Pilih berkas sesuai platform</h4>
+                <h4>Unduh dari GitHub Releases</h4>
                 <p>
-                  <code>fintrack-linux-x86_64.tar.gz</code> untuk Linux, atau
-                  <code>fintrack-android.apk</code> untuk Android.
+                  <code>Odosa-linux-x86_64.tar.gz</code> untuk Linux, atau
+                  <code>Odosa-android.apk</code> untuk Android.
                 </p>
               </div>
             </div>
@@ -2284,7 +2451,7 @@
                 />
               </svg>
             </span>
-            FinTrack
+            Odosa
           </a>
           <p class="foot-note">
             Personal financial tracker untuk Linux &amp; Android. Gratis &amp;
@@ -2297,14 +2464,14 @@
           <a href="#tampilan">Tampilan</a>
           <a href="#unduh">Unduh</a>
           <a
-            href="https://github.com/fintrack-app/fintrack"
-            target="_blank"
+            href="https://github.com/labambangpunto/odosa"
+            target="_self"
             rel="noopener"
             >GitHub</a
           >
           <a
-            href="https://github.com/fintrack-app/fintrack/releases"
-            target="_blank"
+            href="https://github.com/labambangpunto/odosa/releases"
+            target="_self"
             rel="noopener"
             >Releases</a
           >
@@ -2312,8 +2479,7 @@
       </div>
       <div class="wrap" style="margin-top: 26px">
         <p class="foot-note">
-          © 2025 FinTrack. Dibuat dengan ❤ untuk kamu yang ingin lebih sadar
-          finansial.
+          © 2025 Odosa. Dibuat dengan ❤ untuk kamu yang lebih sadar finansial.
         </p>
       </div>
     </footer>
@@ -2324,7 +2490,7 @@
    ============================================================ */
       (function () {
         const root = document.documentElement;
-        const KEY = "fintrack-theme";
+        const KEY = "Odosa-theme";
 
         let saved = null;
         try {
