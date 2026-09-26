@@ -8,6 +8,7 @@ import 'features/debts/presentation/forms/payable_form.dart';
 import 'features/debts/presentation/forms/receivable_form.dart';
 
 import 'features/settings/presentation/pages/settings_page.dart'; // Import halaman settings
+import 'features/transactions/presentation/pages/transaction_log_page.dart';
 
 void main() {
   runApp(const MyApp());
@@ -42,9 +43,9 @@ class _MainScreenState extends State<MainScreen> {
 
   final List<Widget> _pages = const [
     Center(child: Text('Halaman Home', style: TextStyle(fontSize: 24))),
-    Center(child: Text('Halaman Transaksi', style: TextStyle(fontSize: 24))),
+    TransactionLogPage(), // Diganti menggunakan TransactionLogPage
     Center(child: Text('Halaman Utang', style: TextStyle(fontSize: 24))),
-    SettingsPage(), // Diganti menggunakan SettingsPage
+    SettingsPage(),
   ];
 
   void _navigateToForm(BuildContext context, String title, Widget formWidget) {

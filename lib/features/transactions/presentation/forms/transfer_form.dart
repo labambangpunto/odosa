@@ -4,6 +4,9 @@ import '../widgets/account_dropdown.dart';
 import '../widgets/label_chip_input.dart';
 
 import 'package:intl/intl.dart';
+import 'package:drift/drift.dart' as drift;
+
+import '../../models/transaction_model.dart';
 
 class TransferForm extends StatefulWidget {
   const TransferForm({super.key});
@@ -51,9 +54,28 @@ class _TransferFormState extends State<TransferForm> {
     }
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     if (_formKey.currentState!.validate()) {
-      debugPrint('Simpan Transfer: ${_amountController.text}');
+      final db = AppDatabase();
+      try {
+        await db
+            .into(db.transactions)
+            .insert(
+              TransactionsCompanion.insert(
+                type: 'transfer',
+                amount: double.parse(_amountController.text),
+                sourceAccount: drift.Value(_sourceAccount),
+                destinationAccount: drift.Value(_destinationAccount),
+                fee: drift.Value(double.tryParse(_feeController.text)),
+                labels: _labels.join(','),
+                transactionDate: _selectedDate,
+                note: drift.Value(_noteController.text),
+              ),
+            );
+        if (mounted) Navigator.pop(context);
+      } finally {
+        await db.close();
+      }
     }
   }
 

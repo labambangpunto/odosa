@@ -4,6 +4,9 @@ import '../widgets/account_dropdown.dart';
 import '../widgets/label_chip_input.dart';
 
 import 'package:intl/intl.dart';
+import 'package:drift/drift.dart' as drift;
+
+import '../../models/transaction_model.dart';
 
 class IncomeForm extends StatefulWidget {
   const IncomeForm({super.key});
@@ -49,9 +52,26 @@ class _IncomeFormState extends State<IncomeForm> {
     }
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     if (_formKey.currentState!.validate()) {
-      debugPrint('Simpan Pemasukan: ${_amountController.text}');
+      final db = AppDatabase();
+      try {
+        await db
+            .into(db.transactions)
+            .insert(
+              TransactionsCompanion.insert(
+                type: 'income',
+                amount: double.parse(_amountController.text),
+                destinationAccount: drift.Value(_destinationAccount),
+                labels: _labels.join(','),
+                transactionDate: _selectedDate,
+                note: drift.Value(_noteController.text),
+              ),
+            );
+        if (mounted) Navigator.pop(context);
+      } finally {
+        await db.close();
+      }
     }
   }
 

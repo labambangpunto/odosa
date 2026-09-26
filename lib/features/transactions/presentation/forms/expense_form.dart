@@ -4,6 +4,9 @@ import '../widgets/account_dropdown.dart';
 import '../widgets/label_chip_input.dart';
 
 import 'package:intl/intl.dart';
+import 'package:drift/drift.dart' as drift;
+
+import '../../models/transaction_model.dart';
 
 class ExpenseForm extends StatefulWidget {
   const ExpenseForm({super.key});
@@ -51,9 +54,28 @@ class _ExpenseFormState extends State<ExpenseForm> {
     }
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     if (_formKey.currentState!.validate()) {
-      debugPrint('Simpan Pengeluaran: ${_amountController.text}');
+      final db = AppDatabase();
+      try {
+        await db
+            .into(db.transactions)
+            .insert(
+              TransactionsCompanion.insert(
+                type: 'expense',
+                amount: double.parse(_amountController.text),
+                fee: drift.Value(double.tryParse(_feeController.text)),
+                qty: drift.Value(int.tryParse(_qtyController.text) ?? 1),
+                sourceAccount: drift.Value(_sourceAccount),
+                labels: _labels.join(','),
+                transactionDate: _selectedDate,
+                note: drift.Value(_noteController.text),
+              ),
+            );
+        if (mounted) Navigator.pop(context); // Menutup form setelah berhasil
+      } finally {
+        await db.close();
+      }
     }
   }
 
