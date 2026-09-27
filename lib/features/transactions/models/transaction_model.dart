@@ -32,7 +32,11 @@ class Labels extends Table {
 
 @DriftDatabase(tables: [Transactions, Accounts, Labels])
 class AppDatabase extends _$AppDatabase {
-  AppDatabase() : super(_openConnection());
+  // 1. Buat Singleton agar koneksi database sama di seluruh aplikasi
+  static final AppDatabase _instance = AppDatabase._internal();
+  factory AppDatabase() => _instance;
+
+  AppDatabase._internal() : super(_openConnection());
 
   @override
   int get schemaVersion => 2;

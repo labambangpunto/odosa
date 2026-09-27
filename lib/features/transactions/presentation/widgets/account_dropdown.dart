@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
-class AccountDropdown extends StatelessWidget {
+import '../../models/transaction_model.dart';
+
+class AccountDropdown extends StatefulWidget {
   final String label;
   final String? value;
   final ValueChanged<String?> onChanged;
@@ -14,17 +16,29 @@ class AccountDropdown extends StatelessWidget {
     this.validator,
   });
 
+  @override
+  State<AccountDropdown> createState() => _AccountDropdownState();
+}
+
+class _AccountDropdownState extends State<AccountDropdown> {
+  late Future<List<String>> _accountsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _accountsFuture = _getAccountsFromDb(); // Panggil hanya sekali di awal
+  }
+
   Future<List<String>> _getAccountsFromDb() async {
-    await Future.delayed(
-      const Duration(milliseconds: 100),
-    ); // Simulasi delay DB
-    return ['BCA', 'Mandiri', 'Gopay', 'OVO', 'Kas Tunai'];
+    final db = AppDatabase();
+    final accounts = await db.select(db.accounts).get();
+    return accounts.map((a) => a.name).toList();
   }
 
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<List<String>>(
-      future: _getAccountsFromDb(),
+      future: _accountsFuture, // Gunakan variabel yang sudah di-cache
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Padding(
@@ -36,9 +50,9 @@ class AccountDropdown extends StatelessWidget {
         final List<String> accounts = snapshot.data ?? [];
 
         return DropdownButtonFormField<String>(
-          initialValue: value,
+          initialValue: widget.value,
           decoration: InputDecoration(
-            labelText: label,
+            labelText: widget.label,
             border: const OutlineInputBorder(),
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
@@ -48,10 +62,11 @@ class AccountDropdown extends StatelessWidget {
           items: accounts.map((account) {
             return DropdownMenuItem(value: account, child: Text(account));
           }).toList(),
-          onChanged: onChanged,
+          onChanged: widget.onChanged,
           validator:
-              validator ??
-              (val) => val == null || val.isEmpty ? 'Pilih $label' : null,
+              widget.validator ??
+              (val) =>
+                  val == null || val.isEmpty ? 'Pilih ${widget.label}' : null,
         );
       },
     );

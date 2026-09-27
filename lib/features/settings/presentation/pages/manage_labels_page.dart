@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:drift/drift.dart' as drift;
+
+import '../../../transactions/models/transaction_model.dart';
 
 class ManageLabelsPage extends StatefulWidget {
   const ManageLabelsPage({super.key});
@@ -8,20 +11,20 @@ class ManageLabelsPage extends StatefulWidget {
 }
 
 class _ManageLabelsPageState extends State<ManageLabelsPage> {
-  final List<String> _labels = [
-    'Makan',
-    'Transport',
-    'Gaji',
-    'Bonus',
-    'Tagihan',
-  ];
+  late final AppDatabase _db;
 
-  void _showFormDialog({String? initialName, int? index}) {
-    final controller = TextEditingController(text: initialName);
+  @override
+  void initState() {
+    super.initState();
+    _db = AppDatabase();
+  }
+
+  void _showFormDialog({Label? label}) {
+    final controller = TextEditingController(text: label?.name);
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(initialName == null ? 'Tambah Label' : 'Edit Label'),
+        title: Text(label == null ? 'Tambah Label' : 'Edit Label'),
         content: TextField(
           controller: controller,
           decoration: const InputDecoration(labelText: 'Nama Label'),
@@ -34,18 +37,20 @@ class _ManageLabelsPageState extends State<ManageLabelsPage> {
             child: const Text('Batal'),
           ),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               final text = controller.text.trim();
               if (text.isNotEmpty) {
-                setState(() {
-                  if (index == null) {
-                    _labels.add(text);
-                  } else {
-                    _labels[index] = text;
-                  }
-                });
-
-                Navigator.pop(context);
+                if (label == null) {
+                  await _db
+                      .into(_db.labels)
+                      .insert(LabelsCompanion.insert(name: text));
+                } else {
+                  await (_db.update(_db.labels)
+                        ..where((l) => l.id.equals(label.id)))
+                      .write(LabelsCompanion(name: drift.Value(text)));
+                }
+                // Koreksi context.mounted
+                if (context.mounted) Navigator.pop(context);
               }
             },
             child: const Text('Simpan'),
@@ -55,10 +60,8 @@ class _ManageLabelsPageState extends State<ManageLabelsPage> {
     );
   }
 
-  void _deleteLabel(int index) {
-    setState(() {
-      _labels.removeAt(index);
-    });
+  void _deleteLabel(int id) async {
+    await (_db.delete(_db.labels)..where((l) => l.id.equals(id))).go();
   }
 
   @override
@@ -70,27 +73,41 @@ class _ManageLabelsPageState extends State<ManageLabelsPage> {
         foregroundColor: Colors.black,
         elevation: 1,
       ),
-      body: ListView.separated(
-        itemCount: _labels.length,
-        separatorBuilder: (context, index) => const Divider(height: 1),
-        itemBuilder: (context, index) {
-          final label = _labels[index];
-          return ListTile(
-            title: Text(label),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.edit_outlined, color: Colors.blue),
-                  onPressed: () =>
-                      _showFormDialog(initialName: label, index: index),
+      body: StreamBuilder<List<Label>>(
+        stream: _db.select(_db.labels).watch(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          final labels = snapshot.data ?? [];
+
+          if (labels.isEmpty) {
+            return const Center(child: Text('Belum ada label terdaftar.'));
+          }
+
+          return ListView.separated(
+            itemCount: labels.length,
+            separatorBuilder: (context, index) => const Divider(height: 1),
+            itemBuilder: (context, index) {
+              final label = labels[index];
+              return ListTile(
+                title: Text(label.name),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.edit_outlined, color: Colors.blue),
+                      onPressed: () => _showFormDialog(label: label),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.delete_outline, color: Colors.red),
+                      onPressed: () => _deleteLabel(label.id),
+                    ),
+                  ],
                 ),
-                IconButton(
-                  icon: const Icon(Icons.delete_outline, color: Colors.red),
-                  onPressed: () => _deleteLabel(index),
-                ),
-              ],
-            ),
+              );
+            },
           );
         },
       ),

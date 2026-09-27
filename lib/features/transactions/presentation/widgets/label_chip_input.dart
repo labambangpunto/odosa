@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../models/transaction_model.dart';
+
 class LabelChipInput extends StatefulWidget {
   final List<String> selectedLabels;
   final ValueChanged<List<String>> onChanged;
@@ -17,11 +19,18 @@ class LabelChipInput extends StatefulWidget {
 }
 
 class _LabelChipInputState extends State<LabelChipInput> {
+  late Future<List<String>> _labelsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _labelsFuture = _getLabelsFromDb(); // Panggil hanya sekali di awal
+  }
+
   Future<List<String>> _getLabelsFromDb() async {
-    await Future.delayed(
-      const Duration(milliseconds: 100),
-    ); // Simulasi delay DB
-    return ['Makan', 'Transport', 'Gaji', 'Bonus', 'Tagihan'];
+    final db = AppDatabase();
+    final labels = await db.select(db.labels).get();
+    return labels.map((l) => l.name).toList();
   }
 
   void _toggleLabel(
@@ -58,7 +67,7 @@ class _LabelChipInputState extends State<LabelChipInput> {
             ),
             const SizedBox(height: 8),
             FutureBuilder<List<String>>(
-              future: _getLabelsFromDb(),
+              future: _labelsFuture, // Gunakan variabel yang sudah di-cache
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const CircularProgressIndicator();

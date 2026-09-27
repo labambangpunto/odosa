@@ -57,25 +57,21 @@ class _TransferFormState extends State<TransferForm> {
   Future<void> _submit() async {
     if (_formKey.currentState!.validate()) {
       final db = AppDatabase();
-      try {
-        await db
-            .into(db.transactions)
-            .insert(
-              TransactionsCompanion.insert(
-                type: 'transfer',
-                amount: double.parse(_amountController.text),
-                sourceAccount: drift.Value(_sourceAccount),
-                destinationAccount: drift.Value(_destinationAccount),
-                fee: drift.Value(double.tryParse(_feeController.text)),
-                labels: _labels.join(','),
-                transactionDate: _selectedDate,
-                note: drift.Value(_noteController.text),
-              ),
-            );
-        if (mounted) Navigator.pop(context);
-      } finally {
-        await db.close();
-      }
+      await db
+          .into(db.transactions)
+          .insert(
+            TransactionsCompanion.insert(
+              type: 'transfer',
+              amount: double.parse(_amountController.text),
+              sourceAccount: drift.Value(_sourceAccount),
+              destinationAccount: drift.Value(_destinationAccount),
+              fee: drift.Value(double.tryParse(_feeController.text)),
+              labels: _labels.join(','),
+              transactionDate: _selectedDate,
+              note: drift.Value(_noteController.text),
+            ),
+          );
+      if (mounted) Navigator.pop(context);
     }
   }
 

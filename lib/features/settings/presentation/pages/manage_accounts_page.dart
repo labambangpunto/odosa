@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:drift/drift.dart' as drift;
+
+import '../../../transactions/models/transaction_model.dart';
 
 class ManageAccountsPage extends StatefulWidget {
   const ManageAccountsPage({super.key});
@@ -8,20 +11,20 @@ class ManageAccountsPage extends StatefulWidget {
 }
 
 class _ManageAccountsPageState extends State<ManageAccountsPage> {
-  final List<String> _accounts = [
-    'BCA',
-    'Mandiri',
-    'Gopay',
-    'OVO',
-    'Kas Tunai',
-  ];
+  late final AppDatabase _db;
 
-  void _showFormDialog({String? initialName, int? index}) {
-    final controller = TextEditingController(text: initialName);
+  @override
+  void initState() {
+    super.initState();
+    _db = AppDatabase();
+  }
+
+  void _showFormDialog({Account? account}) {
+    final controller = TextEditingController(text: account?.name);
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(initialName == null ? 'Tambah Akun' : 'Edit Akun'),
+        title: Text(account == null ? 'Tambah Akun' : 'Edit Akun'),
         content: TextField(
           controller: controller,
           decoration: const InputDecoration(labelText: 'Nama Akun'),
@@ -34,18 +37,20 @@ class _ManageAccountsPageState extends State<ManageAccountsPage> {
             child: const Text('Batal'),
           ),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               final text = controller.text.trim();
               if (text.isNotEmpty) {
-                setState(() {
-                  if (index == null) {
-                    _accounts.add(text);
-                  } else {
-                    _accounts[index] = text;
-                  }
-                });
-
-                Navigator.pop(context);
+                if (account == null) {
+                  await _db
+                      .into(_db.accounts)
+                      .insert(AccountsCompanion.insert(name: text));
+                } else {
+                  await (_db.update(_db.accounts)
+                        ..where((a) => a.id.equals(account.id)))
+                      .write(AccountsCompanion(name: drift.Value(text)));
+                }
+                // Koreksi context.mounted
+                if (context.mounted) Navigator.pop(context);
               }
             },
             child: const Text('Simpan'),
@@ -55,10 +60,8 @@ class _ManageAccountsPageState extends State<ManageAccountsPage> {
     );
   }
 
-  void _deleteAccount(int index) {
-    setState(() {
-      _accounts.removeAt(index);
-    });
+  void _deleteAccount(int id) async {
+    await (_db.delete(_db.accounts)..where((a) => a.id.equals(id))).go();
   }
 
   @override
@@ -70,27 +73,41 @@ class _ManageAccountsPageState extends State<ManageAccountsPage> {
         foregroundColor: Colors.black,
         elevation: 1,
       ),
-      body: ListView.separated(
-        itemCount: _accounts.length,
-        separatorBuilder: (context, index) => const Divider(height: 1),
-        itemBuilder: (context, index) {
-          final account = _accounts[index];
-          return ListTile(
-            title: Text(account),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.edit_outlined, color: Colors.blue),
-                  onPressed: () =>
-                      _showFormDialog(initialName: account, index: index),
+      body: StreamBuilder<List<Account>>(
+        stream: _db.select(_db.accounts).watch(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          final accounts = snapshot.data ?? [];
+
+          if (accounts.isEmpty) {
+            return const Center(child: Text('Belum ada akun terdaftar.'));
+          }
+
+          return ListView.separated(
+            itemCount: accounts.length,
+            separatorBuilder: (context, index) => const Divider(height: 1),
+            itemBuilder: (context, index) {
+              final account = accounts[index];
+              return ListTile(
+                title: Text(account.name),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.edit_outlined, color: Colors.blue),
+                      onPressed: () => _showFormDialog(account: account),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.delete_outline, color: Colors.red),
+                      onPressed: () => _deleteAccount(account.id),
+                    ),
+                  ],
                 ),
-                IconButton(
-                  icon: const Icon(Icons.delete_outline, color: Colors.red),
-                  onPressed: () => _deleteAccount(index),
-                ),
-              ],
-            ),
+              );
+            },
           );
         },
       ),
