@@ -6,7 +6,7 @@ import '../../../transactions/presentation/widgets/account_dropdown.dart';
 class SettlementSheet extends StatefulWidget {
   final String debtType; // 'payable' atau 'receivable'
   final double amount;
-  final VoidCallback onSuccess;
+  final void Function(String accountName, DateTime date) onSuccess;
 
   const SettlementSheet({
     super.key,
@@ -19,7 +19,7 @@ class SettlementSheet extends StatefulWidget {
     BuildContext context, {
     required String debtType,
     required double amount,
-    required VoidCallback onSuccess,
+    required void Function(String, DateTime) onSuccess,
   }) {
     showModalBottomSheet(
       context: context,
@@ -46,7 +46,10 @@ class _SettlementSheetState extends State<SettlementSheet> {
 
   void _submit() {
     if (_formKey.currentState!.validate()) {
-      widget.onSuccess();
+      widget.onSuccess(
+        _settlementAccount!,
+        _settlementDate,
+      ); // Kirim data kembali
       Navigator.pop(context);
     }
   }

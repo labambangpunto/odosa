@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:drift/drift.dart' as drift;
+import 'package:intl/intl.dart';
 
 import '../../../transactions/models/transaction_model.dart';
 
@@ -20,16 +21,34 @@ class _ManageAccountsPageState extends State<ManageAccountsPage> {
   }
 
   void _showFormDialog({Account? account}) {
-    final controller = TextEditingController(text: account?.name);
+    final nameController = TextEditingController(text: account?.name);
+    final balanceController = TextEditingController(
+      text: account?.initialBalance.toStringAsFixed(0) ?? '0',
+    );
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(account == null ? 'Tambah Akun' : 'Edit Akun'),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(labelText: 'Nama Akun'),
-          autofocus: true,
-          textCapitalization: TextCapitalization.words,
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              decoration: const InputDecoration(labelText: 'Nama Akun'),
+              autofocus: true,
+              textCapitalization: TextCapitalization.words,
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: balanceController,
+              decoration: const InputDecoration(
+                labelText: 'Saldo Awal (Rp)',
+                prefixText: 'Rp ',
+              ),
+              keyboardType: TextInputType.number,
+            ),
+          ],
         ),
         actions: [
           TextButton(
@@ -38,18 +57,46 @@ class _ManageAccountsPageState extends State<ManageAccountsPage> {
           ),
           ElevatedButton(
             onPressed: () async {
-              final text = controller.text.trim();
-              if (text.isNotEmpty) {
+              final name = nameController.text.trim();
+              final balance =
+                  double.tryParse(balanceController.text.trim()) ?? 0.0;
+
+              if (name.isNotEmpty) {
+                // Cek duplikasi nama
+                final existing = await (_db.select(
+                  _db.accounts,
+                )..where((a) => a.name.equals(name))).getSingleOrNull();
+                if (existing != null &&
+                    (account == null || existing.id != account.id)) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Nama akun sudah digunakan!'),
+                      ),
+                    );
+                  }
+                  return; // Hentikan proses simpan
+                }
+
                 if (account == null) {
                   await _db
                       .into(_db.accounts)
-                      .insert(AccountsCompanion.insert(name: text));
+                      .insert(
+                        AccountsCompanion.insert(
+                          name: name,
+                          initialBalance: drift.Value(balance),
+                        ),
+                      );
                 } else {
-                  await (_db.update(_db.accounts)
-                        ..where((a) => a.id.equals(account.id)))
-                      .write(AccountsCompanion(name: drift.Value(text)));
+                  await (_db.update(
+                    _db.accounts,
+                  )..where((a) => a.id.equals(account.id))).write(
+                    AccountsCompanion(
+                      name: drift.Value(name),
+                      initialBalance: drift.Value(balance),
+                    ),
+                  );
                 }
-                // Koreksi context.mounted
                 if (context.mounted) Navigator.pop(context);
               }
             },
@@ -91,21 +138,51 @@ class _ManageAccountsPageState extends State<ManageAccountsPage> {
             separatorBuilder: (context, index) => const Divider(height: 1),
             itemBuilder: (context, index) {
               final account = accounts[index];
-              return ListTile(
-                title: Text(account.name),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.edit_outlined, color: Colors.blue),
-                      onPressed: () => _showFormDialog(account: account),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.delete_outline, color: Colors.red),
-                      onPressed: () => _deleteAccount(account.id),
-                    ),
-                  ],
+
+              // Widget StreamBuilder bersarang untuk memantau kalkulasi saldo per akun
+              return StreamBuilder<double>(
+                stream: _db.watchAccountBalance(
+                  account.name,
+                  account.initialBalance,
                 ),
+                builder: (context, balanceSnapshot) {
+                  final currentBalance =
+                      balanceSnapshot.data ?? account.initialBalance;
+                  final isNegative = currentBalance < 0;
+
+                  return ListTile(
+                    title: Text(
+                      account.name,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    subtitle: Text(
+                      'Saldo: Rp ${NumberFormat('#,###').format(currentBalance)}',
+                      style: TextStyle(
+                        color: isNegative ? Colors.red : Colors.green[700],
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(
+                            Icons.edit_outlined,
+                            color: Colors.blue,
+                          ),
+                          onPressed: () => _showFormDialog(account: account),
+                        ),
+                        IconButton(
+                          icon: const Icon(
+                            Icons.delete_outline,
+                            color: Colors.red,
+                          ),
+                          onPressed: () => _deleteAccount(account.id),
+                        ),
+                      ],
+                    ),
+                  );
+                },
               );
             },
           );

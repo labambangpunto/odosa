@@ -38,19 +38,38 @@ class _ManageLabelsPageState extends State<ManageLabelsPage> {
           ),
           ElevatedButton(
             onPressed: () async {
-              final text = controller.text.trim();
-              if (text.isNotEmpty) {
+              // Menggunakan variabel controller bawaan dialog label
+              final name = controller.text.trim();
+
+              if (name.isNotEmpty) {
+                // Cek duplikasi nama label
+                final existing = await (_db.select(
+                  _db.labels,
+                )..where((l) => l.name.equals(name))).getSingleOrNull();
+                if (existing != null &&
+                    (label == null || existing.id != label.id)) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Nama label sudah digunakan!'),
+                      ),
+                    );
+                  }
+                  return;
+                }
+
                 if (label == null) {
                   await _db
                       .into(_db.labels)
-                      .insert(LabelsCompanion.insert(name: text));
+                      .insert(LabelsCompanion.insert(name: name));
                 } else {
                   await (_db.update(_db.labels)
                         ..where((l) => l.id.equals(label.id)))
-                      .write(LabelsCompanion(name: drift.Value(text)));
+                      .write(LabelsCompanion(name: drift.Value(name)));
                 }
-                // Koreksi context.mounted
-                if (context.mounted) Navigator.pop(context);
+                if (context.mounted) {
+                  Navigator.pop(context);
+                }
               }
             },
             child: const Text('Simpan'),

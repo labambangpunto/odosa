@@ -1,7 +1,11 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
 import 'manage_accounts_page.dart';
 import 'manage_labels_page.dart';
+import 'edit_profile_page.dart';
+import '../../services/profile_service.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -11,7 +15,24 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
+  final ProfileService _profileService = ProfileService();
   bool _isDarkMode = false;
+  String _userName = 'Pengguna';
+  String? _photoPath;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProfileData();
+  }
+
+  Future<void> _loadProfileData() async {
+    final data = await _profileService.loadProfile();
+    setState(() {
+      _userName = data['name'] ?? 'Pengguna';
+      _photoPath = data['photoPath'];
+    });
+  }
 
   void _showComingSoonDialog() {
     showDialog(
@@ -71,27 +92,40 @@ class _SettingsPageState extends State<SettingsPage> {
       ),
       body: ListView(
         children: [
-          // 1. Profil
           ListTile(
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
               vertical: 8,
             ),
-            leading: const CircleAvatar(
+            leading: CircleAvatar(
               radius: 28,
               backgroundColor: Colors.blue,
-              child: Icon(Icons.person, color: Colors.white, size: 32),
+              backgroundImage: _photoPath != null
+                  ? FileImage(File(_photoPath!))
+                  : null,
+              child: _photoPath == null
+                  ? const Icon(Icons.person, color: Colors.white, size: 32)
+                  : null,
             ),
-            title: const Text(
-              'Nama Pengguna',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+            title: Text(
+              _userName,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
             ),
             subtitle: const Text('Ketuk untuk mengedit profil'),
-            onTap: () {},
+            onTap: () async {
+              final result = await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const EditProfilePage(),
+                ),
+              );
+              if (result == true) {
+                _loadProfileData();
+              }
+            },
           ),
           const Divider(height: 1),
 
-          // 2. Google Drive (Coming Soon)
           ListTile(
             leading: const Icon(Icons.cloud_sync, color: Colors.grey),
             title: const Text('Google Drive Backup'),
@@ -103,7 +137,6 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
           const Divider(height: 1),
 
-          // 3. Mode Gelap
           SwitchListTile(
             secondary: const Icon(Icons.dark_mode_outlined),
             title: const Text('Mode Gelap'),
@@ -114,7 +147,6 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
           const Divider(height: 1),
 
-          // Kelola Akun (Eksisting)
           ListTile(
             leading: const Icon(Icons.account_balance_wallet_rounded),
             title: const Text('Kelola Akun'),
@@ -130,7 +162,6 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
           const Divider(height: 1),
 
-          // Kelola Label (Eksisting)
           ListTile(
             leading: const Icon(Icons.label_rounded),
             title: const Text('Kelola Label'),
@@ -148,7 +179,6 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
           const Divider(height: 1),
 
-          // 4. Export / Import JSON
           ListTile(
             leading: const Icon(Icons.data_object_rounded),
             title: const Text('Backup & Restore (JSON)'),
@@ -157,7 +187,6 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
           const Divider(height: 1),
 
-          // 5. Export CSV
           ListTile(
             leading: const Icon(Icons.table_view_rounded),
             title: const Text('Ekspor ke CSV'),
@@ -166,7 +195,6 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
           const Divider(height: 1),
 
-          // 6. Danger Zone: Reset Database
           ListTile(
             leading: const Icon(Icons.warning_amber_rounded, color: Colors.red),
             title: const Text(

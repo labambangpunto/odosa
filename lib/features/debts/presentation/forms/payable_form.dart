@@ -5,6 +5,10 @@ import '../widgets/contact_picker.dart';
 import '../../../transactions/presentation/widgets/account_dropdown.dart';
 import '../../../transactions/presentation/widgets/label_chip_input.dart';
 
+import 'package:drift/drift.dart' as drift;
+
+import '../../../transactions/models/transaction_model.dart';
+
 class PayableForm extends StatefulWidget {
   const PayableForm({super.key});
 
@@ -65,9 +69,27 @@ class _PayableFormState extends State<PayableForm> {
     }
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     if (_formKey.currentState!.validate()) {
-      debugPrint('Simpan Utang: ${_amountController.text} dari $_contact');
+      final db = AppDatabase();
+      await db
+          .into(db.debts)
+          .insert(
+            DebtsCompanion.insert(
+              type: 'payable',
+              amount: double.parse(_amountController.text),
+              contact: _contact,
+              primaryAccount: _destinationAccount ?? '',
+              labels: drift.Value(_labels.join(',')),
+              transactionDate: _selectedDate,
+              dueDate: drift.Value(_dueDate),
+              note: _noteController.text,
+              isSettled: drift.Value(_isSettled),
+              settlementAccount: drift.Value(_settlementAccount),
+              settlementDate: drift.Value(_settlementDate),
+            ),
+          );
+      if (mounted) Navigator.pop(context);
     }
   }
 

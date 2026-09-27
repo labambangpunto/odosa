@@ -57,14 +57,35 @@ class _ExpenseFormState extends State<ExpenseForm> {
   Future<void> _submit() async {
     if (_formKey.currentState!.validate()) {
       final db = AppDatabase();
+
+      final amount = double.parse(_amountController.text);
+      final fee = double.tryParse(_feeController.text) ?? 0.0;
+      final qty = int.tryParse(_qtyController.text) ?? 1;
+      final totalDeduction = (amount * qty) + fee;
+
+      // Cek saldo
+      final currentBalance = await db.getCalculatedBalance(_sourceAccount!);
+      if (currentBalance < totalDeduction) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Saldo akun tidak mencukupi!')),
+          );
+        }
+        return;
+      }
+      // ...
+      if (mounted) {
+        Navigator.pop(context);
+      }
+
       await db
           .into(db.transactions)
           .insert(
             TransactionsCompanion.insert(
               type: 'expense',
-              amount: double.parse(_amountController.text),
-              fee: drift.Value(double.tryParse(_feeController.text)),
-              qty: drift.Value(int.tryParse(_qtyController.text) ?? 1),
+              amount: amount,
+              fee: drift.Value(fee > 0 ? fee : null),
+              qty: drift.Value(qty),
               sourceAccount: drift.Value(_sourceAccount),
               labels: _labels.join(','),
               transactionDate: _selectedDate,

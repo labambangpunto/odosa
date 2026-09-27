@@ -57,6 +57,20 @@ class _TransferFormState extends State<TransferForm> {
   Future<void> _submit() async {
     if (_formKey.currentState!.validate()) {
       final db = AppDatabase();
+      final amount = double.parse(_amountController.text);
+      final fee = double.tryParse(_feeController.text) ?? 0.0;
+      final totalDeduction = amount + fee;
+
+      // Cek saldo
+      final currentBalance = await db.getCalculatedBalance(_sourceAccount!);
+      if (currentBalance < totalDeduction) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Saldo akun sumber tidak mencukupi!')),
+          );
+        }
+        return;
+      }
       await db
           .into(db.transactions)
           .insert(

@@ -5,6 +5,10 @@ import '../widgets/contact_picker.dart';
 import '../../../transactions/presentation/widgets/account_dropdown.dart';
 import '../../../transactions/presentation/widgets/label_chip_input.dart';
 
+import 'package:drift/drift.dart' as drift;
+
+import '../../../transactions/models/transaction_model.dart';
+
 class ReceivableForm extends StatefulWidget {
   const ReceivableForm({super.key});
 
@@ -65,10 +69,41 @@ class _ReceivableFormState extends State<ReceivableForm> {
     }
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     if (_formKey.currentState!.validate()) {
-      // Variabel _contact digunakan di sini
-      debugPrint('Simpan Piutang: ${_amountController.text} untuk $_contact');
+      final db = AppDatabase();
+      final amount = double.parse(_amountController.text);
+
+      // Cek saldo karena meminjamkan uang mengurangi saldo Anda
+      final currentBalance = await db.getCalculatedBalance(_sourceAccount!);
+      if (currentBalance < amount) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Saldo akun tidak mencukupi untuk dipinjamkan!'),
+            ),
+          );
+        }
+        return;
+      }
+      await db
+          .into(db.debts)
+          .insert(
+            DebtsCompanion.insert(
+              type: 'receivable',
+              amount: double.parse(_amountController.text),
+              contact: _contact,
+              primaryAccount: _sourceAccount ?? '',
+              labels: drift.Value(_labels.join(',')),
+              transactionDate: _selectedDate,
+              dueDate: drift.Value(_dueDate),
+              note: _noteController.text,
+              isSettled: drift.Value(_isSettled),
+              settlementAccount: drift.Value(_settlementAccount),
+              settlementDate: drift.Value(_settlementDate),
+            ),
+          );
+      if (mounted) Navigator.pop(context);
     }
   }
 
