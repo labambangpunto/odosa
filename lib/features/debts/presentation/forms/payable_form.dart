@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
-
-import '../widgets/contact_picker.dart';
-import '../../../transactions/presentation/widgets/account_dropdown.dart';
-import '../../../transactions/presentation/widgets/label_chip_input.dart';
-
 import 'package:drift/drift.dart' as drift;
 
 import '../../../transactions/models/transaction_model.dart';
+import '../../../../core/utils/currency_formatter.dart';
+import '../../../transactions/presentation/widgets/account_dropdown.dart';
+import '../../../transactions/presentation/widgets/label_chip_input.dart';
+import '../widgets/contact_picker.dart';
 
 class PayableForm extends StatefulWidget {
-  const PayableForm({super.key});
+  final Debt? debt;
+  const PayableForm({super.key, this.debt});
 
   @override
   State<PayableForm> createState() => _PayableFormState();
@@ -32,64 +33,73 @@ class _PayableFormState extends State<PayableForm> {
   String? _settlementAccount;
   DateTime? _settlementDate;
 
-  Future<DateTime?> _pickDate(
-    BuildContext context, {
-    DateTime? initialDate,
-  }) async {
-    return await showDatePicker(
-      context: context,
-      initialDate: initialDate ?? DateTime.now(),
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2101),
-    );
-  }
+  @override
+  void initState() {
+    super.initState();
+    if (widget.debt != null) {
+      final d = widget.debt!;
+      final formatter = NumberFormat('#,###', 'en_US');
 
-  Future<void> _selectDateTime() async {
-    final DateTime? pickedDate = await _pickDate(
-      context,
-      initialDate: _selectedDate,
-    );
-    if (pickedDate != null) {
-      if (!mounted) return;
-      final TimeOfDay? pickedTime = await showTimePicker(
-        context: context,
-        initialTime: TimeOfDay.fromDateTime(_selectedDate),
-      );
-      if (pickedTime != null) {
-        setState(() {
-          _selectedDate = DateTime(
-            pickedDate.year,
-            pickedDate.month,
-            pickedDate.day,
-            pickedTime.hour,
-            pickedTime.minute,
-          );
-        });
-      }
+      _amountController.text = formatter.format(d.amount).replaceAll(',', '.');
+      _contact = d.contact;
+      _destinationAccount = d.primaryAccount;
+      _labels = d.labels?.isNotEmpty == true ? d.labels!.split(',') : [];
+      _selectedDate = d.transactionDate;
+      _dueDate = d.dueDate;
+      _noteController.text = d.note;
+      _isSettled = d.isSettled;
+      _settlementAccount = d.settlementAccount;
+      _settlementDate = d.settlementDate;
     }
   }
+
+  // ... (lanjutkan ke fungsi _submit)
 
   Future<void> _submit() async {
     if (_formKey.currentState!.validate()) {
       final db = AppDatabase();
-      await db
-          .into(db.debts)
-          .insert(
-            DebtsCompanion.insert(
-              type: 'payable',
-              amount: double.parse(_amountController.text),
-              contact: _contact,
-              primaryAccount: _destinationAccount ?? '',
-              labels: drift.Value(_labels.join(',')),
-              transactionDate: _selectedDate,
-              dueDate: drift.Value(_dueDate),
-              note: _noteController.text,
-              isSettled: drift.Value(_isSettled),
-              settlementAccount: drift.Value(_settlementAccount),
-              settlementDate: drift.Value(_settlementDate),
-            ),
-          );
-      if (mounted) Navigator.pop(context);
+      final amount = double.parse(_amountController.text.replaceAll('.', ''));
+
+      if (widget.debt == null) {
+        await db
+            .into(db.debts)
+            .insert(
+              DebtsCompanion.insert(
+                type: 'payable',
+                amount: amount,
+                contact: _contact,
+                primaryAccount: _destinationAccount ?? '',
+                labels: drift.Value(_labels.join(',')),
+                transactionDate: _selectedDate,
+                dueDate: drift.Value(_dueDate),
+                note: _noteController.text,
+                isSettled: drift.Value(_isSettled),
+                settlementAccount: drift.Value(_settlementAccount),
+                settlementDate: drift.Value(_settlementDate),
+              ),
+            );
+      } else {
+        await (db.update(
+          db.debts,
+        )..where((d) => d.id.equals(widget.debt!.id))).write(
+          DebtsCompanion(
+            amount: drift.Value(amount),
+            contact: drift.Value(_contact),
+            primaryAccount: drift.Value(_destinationAccount ?? ''),
+            labels: drift.Value(_labels.join(',')),
+            transactionDate: drift.Value(_selectedDate),
+            dueDate: drift.Value(_dueDate),
+            note: drift.Value(_noteController.text),
+            isSettled: drift.Value(_isSettled),
+            settlementAccount: drift.Value(_settlementAccount),
+            settlementDate: drift.Value(_settlementDate),
+          ),
+        );
+      }
+
+      if (mounted) {
+        Navigator.pop(context);
+      }
     }
   }
 
@@ -103,9 +113,14 @@ class _PayableFormState extends State<PayableForm> {
           TextFormField(
             controller: _amountController,
             keyboardType: TextInputType.number,
+            inputFormatters: [
+              FilteringTextInputFormatter.digitsOnly,
+              CurrencyInputFormatter(),
+            ],
             decoration: const InputDecoration(
               labelText: 'Nominal',
               border: OutlineInputBorder(),
+              prefixText: 'Rp ',
             ),
             validator: (value) =>
                 value == null || value.isEmpty ? 'Wajib diisi' : null,
@@ -113,6 +128,7 @@ class _PayableFormState extends State<PayableForm> {
           const SizedBox(height: 16),
           ContactPicker(
             label: 'Kontak / Pihak Kedua',
+            initialValue: _contact.isNotEmpty ? _contact : null,
             onChanged: (val) => _contact = val,
           ),
           const SizedBox(height: 16),
@@ -137,7 +153,32 @@ class _PayableFormState extends State<PayableForm> {
               DateFormat('dd MMM yyyy, HH:mm').format(_selectedDate),
             ),
             trailing: const Icon(Icons.calendar_today),
-            onTap: _selectDateTime,
+            onTap: () async {
+              final DateTime? pickedDate = await showDatePicker(
+                context: context,
+                initialDate: _selectedDate,
+                firstDate: DateTime(2000),
+                lastDate: DateTime(2101),
+              );
+              if (pickedDate != null) {
+                if (!context.mounted) return;
+                final TimeOfDay? pickedTime = await showTimePicker(
+                  context: context,
+                  initialTime: TimeOfDay.fromDateTime(_selectedDate),
+                );
+                if (pickedTime != null) {
+                  setState(() {
+                    _selectedDate = DateTime(
+                      pickedDate.year,
+                      pickedDate.month,
+                      pickedDate.day,
+                      pickedTime.hour,
+                      pickedTime.minute,
+                    );
+                  });
+                }
+              }
+            },
           ),
           const SizedBox(height: 16),
           ListTile(
@@ -158,13 +199,19 @@ class _PayableFormState extends State<PayableForm> {
                   )
                 : const Icon(Icons.event),
             onTap: () async {
-              final date = await _pickDate(context, initialDate: _dueDate);
+              final date = await showDatePicker(
+                context: context,
+                initialDate: _dueDate ?? DateTime.now(),
+                firstDate: DateTime(2000),
+                lastDate: DateTime(2101),
+              );
               if (date != null) setState(() => _dueDate = date);
             },
           ),
           const SizedBox(height: 16),
           TextFormField(
             controller: _noteController,
+            maxLength: 150,
             decoration: const InputDecoration(
               labelText: 'Catatan/Deskripsi',
               border: OutlineInputBorder(),
@@ -222,9 +269,11 @@ class _PayableFormState extends State<PayableForm> {
                     ),
                     trailing: const Icon(Icons.calendar_today),
                     onTap: () async {
-                      final date = await _pickDate(
-                        context,
-                        initialDate: _settlementDate,
+                      final date = await showDatePicker(
+                        context: context,
+                        initialDate: _settlementDate ?? DateTime.now(),
+                        firstDate: DateTime(2000),
+                        lastDate: DateTime(2101),
                       );
                       if (date != null) setState(() => _settlementDate = date);
                     },
@@ -234,7 +283,10 @@ class _PayableFormState extends State<PayableForm> {
             ),
           ],
           const SizedBox(height: 24),
-          ElevatedButton(onPressed: _submit, child: const Text('Simpan Utang')),
+          ElevatedButton(
+            onPressed: _submit,
+            child: Text(widget.debt == null ? 'Simpan Utang' : 'Simpan Update'),
+          ),
         ],
       ),
     );

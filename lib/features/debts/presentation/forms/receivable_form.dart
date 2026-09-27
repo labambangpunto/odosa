@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
-
-import '../widgets/contact_picker.dart';
-import '../../../transactions/presentation/widgets/account_dropdown.dart';
-import '../../../transactions/presentation/widgets/label_chip_input.dart';
-
 import 'package:drift/drift.dart' as drift;
 
+import '../../../transactions/presentation/widgets/label_chip_input.dart';
+import '../../../transactions/presentation/widgets/label_chip_input.dart';
 import '../../../transactions/models/transaction_model.dart';
+import '../../../../core/utils/currency_formatter.dart';
 
 class ReceivableForm extends StatefulWidget {
-  const ReceivableForm({super.key});
+  final Debt? debt;
+  const ReceivableForm({super.key, this.debt});
 
   @override
   State<ReceivableForm> createState() => _ReceivableFormState();
@@ -18,7 +18,6 @@ class ReceivableForm extends StatefulWidget {
 
 class _ReceivableFormState extends State<ReceivableForm> {
   final _formKey = GlobalKey<FormState>();
-
   final _amountController = TextEditingController();
   final _noteController = TextEditingController();
 
@@ -32,51 +31,37 @@ class _ReceivableFormState extends State<ReceivableForm> {
   String? _settlementAccount;
   DateTime? _settlementDate;
 
-  Future<DateTime?> _pickDate(
-    BuildContext context, {
-    DateTime? initialDate,
-  }) async {
-    return await showDatePicker(
-      context: context,
-      initialDate: initialDate ?? DateTime.now(),
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2101),
-    );
-  }
+  @override
+  void initState() {
+    super.initState();
+    if (widget.debt != null) {
+      final d = widget.debt!;
+      final formatter = NumberFormat('#,###', 'en_US');
 
-  Future<void> _selectDateTime() async {
-    final DateTime? pickedDate = await _pickDate(
-      context,
-      initialDate: _selectedDate,
-    );
-    if (pickedDate != null) {
-      if (!mounted) return;
-      final TimeOfDay? pickedTime = await showTimePicker(
-        context: context,
-        initialTime: TimeOfDay.fromDateTime(_selectedDate),
-      );
-      if (pickedTime != null) {
-        setState(() {
-          _selectedDate = DateTime(
-            pickedDate.year,
-            pickedDate.month,
-            pickedDate.day,
-            pickedTime.hour,
-            pickedTime.minute,
-          );
-        });
-      }
+      _amountController.text = formatter.format(d.amount).replaceAll(',', '.');
+      _contact = d.contact;
+      _sourceAccount = d.primaryAccount;
+      _labels = d.labels?.isNotEmpty == true ? d.labels!.split(',') : [];
+      _selectedDate = d.transactionDate;
+      _dueDate = d.dueDate;
+      _noteController.text = d.note;
+      _isSettled = d.isSettled;
+      _settlementAccount = d.settlementAccount;
+      _settlementDate = d.settlementDate;
     }
   }
 
+  // ... (lanjutkan ke fungsi _submit)
   Future<void> _submit() async {
     if (_formKey.currentState!.validate()) {
       final db = AppDatabase();
-      final amount = double.parse(_amountController.text);
+      final amount = double.parse(_amountController.text.replaceAll('.', ''));
 
-      // Cek saldo karena meminjamkan uang mengurangi saldo Anda
       final currentBalance = await db.getCalculatedBalance(_sourceAccount!);
-      if (currentBalance < amount) {
+      final oldAmount = widget.debt != null ? widget.debt!.amount : 0.0;
+      final availableBalance = currentBalance + oldAmount;
+
+      if (availableBalance < amount) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -86,24 +71,47 @@ class _ReceivableFormState extends State<ReceivableForm> {
         }
         return;
       }
-      await db
-          .into(db.debts)
-          .insert(
-            DebtsCompanion.insert(
-              type: 'receivable',
-              amount: double.parse(_amountController.text),
-              contact: _contact,
-              primaryAccount: _sourceAccount ?? '',
-              labels: drift.Value(_labels.join(',')),
-              transactionDate: _selectedDate,
-              dueDate: drift.Value(_dueDate),
-              note: _noteController.text,
-              isSettled: drift.Value(_isSettled),
-              settlementAccount: drift.Value(_settlementAccount),
-              settlementDate: drift.Value(_settlementDate),
-            ),
-          );
-      if (mounted) Navigator.pop(context);
+
+      if (widget.debt == null) {
+        await db
+            .into(db.debts)
+            .insert(
+              DebtsCompanion.insert(
+                type: 'receivable',
+                amount: amount,
+                contact: _contact,
+                primaryAccount: _sourceAccount ?? '',
+                labels: drift.Value(_labels.join(',')),
+                transactionDate: _selectedDate,
+                dueDate: drift.Value(_dueDate),
+                note: _noteController.text,
+                isSettled: drift.Value(_isSettled),
+                settlementAccount: drift.Value(_settlementAccount),
+                settlementDate: drift.Value(_settlementDate),
+              ),
+            );
+      } else {
+        await (db.update(
+          db.debts,
+        )..where((d) => d.id.equals(widget.debt!.id))).write(
+          DebtsCompanion(
+            amount: drift.Value(amount),
+            contact: drift.Value(_contact),
+            primaryAccount: drift.Value(_sourceAccount ?? ''),
+            labels: drift.Value(_labels.join(',')),
+            transactionDate: drift.Value(_selectedDate),
+            dueDate: drift.Value(_dueDate),
+            note: drift.Value(_noteController.text),
+            isSettled: drift.Value(_isSettled),
+            settlementAccount: drift.Value(_settlementAccount),
+            settlementDate: drift.Value(_settlementDate),
+          ),
+        );
+      }
+
+      if (mounted) {
+        Navigator.pop(context);
+      }
     }
   }
 
@@ -114,143 +122,14 @@ class _ReceivableFormState extends State<ReceivableForm> {
       child: ListView(
         padding: const EdgeInsets.all(16.0),
         children: [
-          TextFormField(
-            controller: _amountController,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
-              labelText: 'Nominal',
-              border: OutlineInputBorder(),
-            ),
-            validator: (value) =>
-                value == null || value.isEmpty ? 'Wajib diisi' : null,
-          ),
-          const SizedBox(height: 16),
-          ContactPicker(
-            label: 'Kontak / Pihak Kedua',
-            onChanged: (val) => _contact = val,
-          ),
-          const SizedBox(height: 16),
-          AccountDropdown(
-            label: 'Akun Sumber (Dana Dipinjamkan)',
-            value: _sourceAccount,
-            onChanged: (val) => setState(() => _sourceAccount = val),
-          ),
-          const SizedBox(height: 16),
-          LabelChipInput(
-            selectedLabels: _labels,
-            onChanged: (val) => setState(() => _labels = val),
-          ),
-          const SizedBox(height: 16),
-          ListTile(
-            shape: RoundedRectangleBorder(
-              side: const BorderSide(color: Colors.grey),
-              borderRadius: BorderRadius.circular(4.0),
-            ),
-            title: const Text('Tanggal & Waktu'),
-            subtitle: Text(
-              DateFormat('dd MMM yyyy, HH:mm').format(_selectedDate),
-            ),
-            trailing: const Icon(Icons.calendar_today),
-            onTap: _selectDateTime,
-          ),
-          const SizedBox(height: 16),
-          ListTile(
-            shape: RoundedRectangleBorder(
-              side: const BorderSide(color: Colors.grey),
-              borderRadius: BorderRadius.circular(4.0),
-            ),
-            title: const Text('Tenggat Waktu (Opsional)'),
-            subtitle: Text(
-              _dueDate != null
-                  ? DateFormat('dd MMM yyyy').format(_dueDate!)
-                  : 'Pilih Tanggal',
-            ),
-            trailing: _dueDate != null
-                ? IconButton(
-                    icon: const Icon(Icons.clear),
-                    onPressed: () => setState(() => _dueDate = null),
-                  )
-                : const Icon(Icons.event),
-            onTap: () async {
-              final date = await _pickDate(context, initialDate: _dueDate);
-              if (date != null) setState(() => _dueDate = date);
-            },
-          ),
-          const SizedBox(height: 16),
-          TextFormField(
-            controller: _noteController,
-            decoration: const InputDecoration(
-              labelText: 'Catatan/Deskripsi',
-              border: OutlineInputBorder(),
-            ),
-            validator: (value) =>
-                value == null || value.isEmpty ? 'Wajib diisi' : null,
-          ),
-          const SizedBox(height: 16),
-          SwitchListTile(
-            title: const Text('Status: Lunas'),
-            value: _isSettled,
-            onChanged: (val) {
-              setState(() {
-                _isSettled = val;
-                if (val && _settlementDate == null) {
-                  _settlementDate = DateTime.now();
-                }
-              });
-            },
-          ),
-          if (_isSettled) ...[
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.green.withValues(alpha: 0.05),
-                border: Border.all(color: Colors.green.withValues(alpha: 0.2)),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Detail Pelunasan',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 12),
-                  AccountDropdown(
-                    label: 'Akun Penerima Pelunasan',
-                    value: _settlementAccount,
-                    onChanged: (val) =>
-                        setState(() => _settlementAccount = val),
-                    validator: (val) =>
-                        _isSettled && (val == null || val.isEmpty)
-                        ? 'Wajib dipilih'
-                        : null,
-                  ),
-                  const SizedBox(height: 16),
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Tanggal Pelunasan'),
-                    subtitle: Text(
-                      DateFormat('dd MMM yyyy')
-                          .format(_settlementDate ?? DateTime.now()),
-                    ),
-                    trailing: const Icon(Icons.calendar_today),
-                    onTap: () async {
-                      final date = await _pickDate(
-                        context,
-                        initialDate: _settlementDate,
-                      );
-                      if (date != null) setState(() => _settlementDate = date);
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ],
+          // ... (Widget fields sama seperti sebelumnya)
+
           const SizedBox(height: 24),
           ElevatedButton(
             onPressed: _submit,
-            child: const Text('Simpan Piutang'),
+            child: Text(
+              widget.debt == null ? 'Simpan Piutang' : 'Simpan Update',
+            ),
           ),
         ],
       ),

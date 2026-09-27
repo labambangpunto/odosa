@@ -21,6 +21,8 @@ class _TransactionLogPageState extends State<TransactionLogPage> {
   String? _selectedAccount;
   String? _selectedLabel;
 
+  final Set<int> _selectedTransactions = {};
+
   @override
   void initState() {
     super.initState();
@@ -54,18 +56,15 @@ class _TransactionLogPageState extends State<TransactionLogPage> {
 
     query.where((t) {
       var expr = t.transactionDate.isBetweenValues(startOfDay, endOfDay);
-
       if (_selectedAccount != null && _selectedAccount!.isNotEmpty) {
         expr =
             expr &
             (t.sourceAccount.equals(_selectedAccount!) |
                 t.destinationAccount.equals(_selectedAccount!));
       }
-
       if (_selectedLabel != null && _selectedLabel!.isNotEmpty) {
         expr = expr & t.labels.like('%$_selectedLabel%');
       }
-
       return expr;
     });
 
@@ -74,6 +73,57 @@ class _TransactionLogPageState extends State<TransactionLogPage> {
     });
   }
 
+  void _toggleSelection(int id) {
+    setState(() {
+      if (_selectedTransactions.contains(id)) {
+        _selectedTransactions.remove(id);
+      } else {
+        if (_selectedTransactions.length >= 4) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Maksimal 4 transaksi untuk dihapus sekaligus'),
+            ),
+          );
+          return;
+        }
+        _selectedTransactions.add(id);
+      }
+    });
+  }
+
+  Future<void> _deleteSelectedTransactions() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Hapus Transaksi"),
+        content: Text(
+          "Yakin ingin menghapus ${_selectedTransactions.length} transaksi ini?",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text("Batal"),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text("Hapus", style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      await (_db.delete(
+        _db.transactions,
+      )..where((t) => t.id.isIn(_selectedTransactions))).go();
+      setState(() {
+        _selectedTransactions.clear();
+      });
+    }
+  }
+
+  // ... (Pertahankan _pickDate dan _showFilterModal persis seperti sebelumnya)
   Future<void> _pickDate() async {
     final pickedDate = await showDatePicker(
       context: context,
@@ -93,9 +143,7 @@ class _TransactionLogPageState extends State<TransactionLogPage> {
   Future<void> _showFilterModal() async {
     final accounts = await _db.select(_db.accounts).get();
     final labels = await _db.select(_db.labels).get();
-
     if (!mounted) return;
-
     String? tempAccount = _selectedAccount;
     String? tempLabel = _selectedLabel;
 
@@ -187,52 +235,115 @@ class _TransactionLogPageState extends State<TransactionLogPage> {
     );
   }
 
-  Future<void> _deleteTransaction(int id) async {
-    await (_db.delete(_db.transactions)..where((t) => t.id.equals(id))).go();
-  }
-
   @override
   Widget build(BuildContext context) {
     final bool isFilterActive =
         _selectedAccount != null || _selectedLabel != null;
+    final bool isSelectionMode = _selectedTransactions.isNotEmpty;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Log Transaksi'),
-        backgroundColor: Colors.white,
+        leading: isSelectionMode
+            ? IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: () => setState(() => _selectedTransactions.clear()),
+              )
+            : null,
+        title: Text(
+          isSelectionMode
+              ? '${_selectedTransactions.length} dipilih'
+              : 'Log Transaksi',
+        ),
+        backgroundColor: isSelectionMode
+            ? Colors.blue.withValues(alpha: 0.1)
+            : Colors.white,
         foregroundColor: Colors.black,
         elevation: 1,
+        actions: isSelectionMode
+            ? [
+                if (_selectedTransactions.length == 1)
+                  IconButton(
+                    icon: const Icon(Icons.edit),
+                    tooltip: 'Edit Transaksi',
+                    onPressed: () async {
+                      final id = _selectedTransactions.first;
+                      final tx = await (_db.select(
+                        _db.transactions,
+                      )..where((t) => t.id.equals(id))).getSingle();
+
+                      if (!context.mounted) return;
+                      setState(
+                        () => _selectedTransactions.clear(),
+                      ); // Bersihkan seleksi
+
+                      // Arahkan ke form yang sesuai
+                      Widget formWidget;
+                      String title;
+                      if (tx.type == 'expense') {
+                        formWidget = ExpenseForm(
+                          transaction: tx,
+                        ); // Perlu penambahan parameter di form
+                        title = 'Edit Pengeluaran';
+                      } else if (tx.type == 'income') {
+                        formWidget = IncomeForm(transaction: tx);
+                        title = 'Edit Pemasukan';
+                      } else {
+                        formWidget = TransferForm(transaction: tx);
+                        title = 'Edit Transfer';
+                      }
+
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => Scaffold(
+                            appBar: AppBar(title: Text(title)),
+                            body: formWidget,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                IconButton(
+                  icon: const Icon(Icons.delete, color: Colors.red),
+                  tooltip: 'Hapus Transaksi',
+                  onPressed: _deleteSelectedTransactions,
+                ),
+              ]
+            : null,
       ),
       body: Column(
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16.0,
-              vertical: 8.0,
-            ),
-            color: Colors.white,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                TextButton.icon(
-                  onPressed: _pickDate,
-                  icon: const Icon(Icons.calendar_today, size: 18),
-                  label: Text(
-                    DateFormat('dd MMM yyyy').format(_selectedDate),
-                    style: const TextStyle(fontWeight: FontWeight.bold),
+          if (!isSelectionMode)
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16.0,
+                vertical: 8.0,
+              ),
+              color: Colors.white,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  TextButton.icon(
+                    onPressed: _pickDate,
+                    icon: const Icon(Icons.calendar_today, size: 18),
+                    label: Text(
+                      DateFormat('dd MMM yyyy').format(_selectedDate),
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
                   ),
-                ),
-                IconButton(
-                  onPressed: _showFilterModal,
-                  icon: Icon(
-                    isFilterActive ? Icons.filter_list_alt : Icons.filter_list,
-                    color: isFilterActive ? Colors.blue : Colors.black87,
+                  IconButton(
+                    onPressed: _showFilterModal,
+                    icon: Icon(
+                      isFilterActive
+                          ? Icons.filter_list_alt
+                          : Icons.filter_list,
+                      color: isFilterActive ? Colors.blue : Colors.black87,
+                    ),
+                    tooltip: 'Filter',
                   ),
-                  tooltip: 'Filter',
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
           const Divider(height: 1),
           Expanded(
             child: StreamBuilder<List<Transaction>>(
@@ -264,6 +375,7 @@ class _TransactionLogPageState extends State<TransactionLogPage> {
                     final isIncome = tx.type == 'income';
                     final isExpense = tx.type == 'expense';
                     final isTransfer = tx.type == 'transfer';
+                    final isSelected = _selectedTransactions.contains(tx.id);
 
                     Color amountColor;
                     String prefix = '';
@@ -283,174 +395,159 @@ class _TransactionLogPageState extends State<TransactionLogPage> {
                           '${tx.sourceAccount ?? "-"} ➔ ${tx.destinationAccount ?? "-"}';
                     }
 
-                    return Dismissible(
-                      key: ValueKey(tx.id),
-                      direction: DismissDirection.endToStart,
-                      background: Container(
-                        color: Colors.red,
-                        alignment: Alignment.centerRight,
-                        padding: const EdgeInsets.only(right: 20),
-                        child: const Icon(Icons.delete, color: Colors.white),
-                      ),
-                      confirmDismiss: (direction) async {
-                        return await showDialog(
-                          context: context,
-                          builder: (BuildContext context) {
-                            return AlertDialog(
-                              title: const Text("Hapus Transaksi"),
-                              content: const Text(
-                                "Apakah Anda yakin ingin menghapus transaksi ini?",
-                              ),
-                              actions: [
-                                TextButton(
-                                  onPressed: () =>
-                                      Navigator.of(context).pop(false),
-                                  child: const Text("Batal"),
-                                ),
-                                ElevatedButton(
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.red,
-                                  ),
-                                  onPressed: () =>
-                                      Navigator.of(context).pop(true),
-                                  child: const Text(
-                                    "Hapus",
-                                    style: TextStyle(color: Colors.white),
-                                  ),
-                                ),
-                              ],
-                            );
-                          },
-                        );
+                    return InkWell(
+                      onLongPress: () => _toggleSelection(tx.id),
+                      onTap: () {
+                        if (isSelectionMode) {
+                          _toggleSelection(tx.id);
+                        }
                       },
-                      onDismissed: (direction) {
-                        _deleteTransaction(tx.id);
-                      },
-                      child: Padding(
+                      child: Container(
+                        color: isSelected
+                            ? Colors.blue.withValues(alpha: 0.1)
+                            : null,
                         padding: const EdgeInsets.all(16.0),
-                        child: Column(
+                        child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                // Nominal & Deskripsi (Kiri)
-                                Expanded(
-                                  child: Column(
+                            if (isSelectionMode)
+                              Padding(
+                                padding: const EdgeInsets.only(right: 12.0),
+                                child: Checkbox(
+                                  value: isSelected,
+                                  onChanged: (val) => _toggleSelection(tx.id),
+                                ),
+                              ),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      Wrap(
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Wrap(
+                                              crossAxisAlignment:
+                                                  WrapCrossAlignment.center,
+                                              spacing: 6.0,
+                                              children: [
+                                                Text(
+                                                  '$prefix Rp ${NumberFormat('#,###').format(tx.amount)}',
+                                                  style: TextStyle(
+                                                    fontSize: 18,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: amountColor,
+                                                  ),
+                                                ),
+                                                if (isExpense && tx.qty > 1)
+                                                  Text(
+                                                    'x${tx.qty}',
+                                                    style: const TextStyle(
+                                                      fontSize: 14,
+                                                      color: Colors.black54,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                    ),
+                                                  ),
+                                                if ((isExpense || isTransfer) &&
+                                                    tx.fee != null &&
+                                                    tx.fee! > 0)
+                                                  Text(
+                                                    '(+ Rp ${NumberFormat('#,###').format(tx.fee)})',
+                                                    style: const TextStyle(
+                                                      fontSize: 13,
+                                                      color: Colors.redAccent,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                    ),
+                                                  ),
+                                              ],
+                                            ),
+                                            if (tx.note != null &&
+                                                tx.note!.isNotEmpty) ...[
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                tx.note!,
+                                                maxLines: 2,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: const TextStyle(
+                                                  fontSize: 14,
+                                                  color: Colors.black87,
+                                                ),
+                                              ),
+                                            ],
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(width: 16),
+                                      Column(
                                         crossAxisAlignment:
-                                            WrapCrossAlignment.center,
-                                        spacing: 6.0,
+                                            CrossAxisAlignment.end,
                                         children: [
-                                          Text(
-                                            '$prefix Rp ${NumberFormat('#,###').format(tx.amount)}',
-                                            style: TextStyle(
-                                              fontSize: 18,
-                                              fontWeight: FontWeight.bold,
-                                              color: amountColor,
-                                            ),
+                                          Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Text(
+                                                accountInfo,
+                                                style: const TextStyle(
+                                                  fontSize: 12,
+                                                  color: Colors.black54,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Text(
+                                                DateFormat('HH:mm')
+                                                    .format(tx.transactionDate),
+                                                style: const TextStyle(
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Colors.black87,
+                                                ),
+                                              ),
+                                            ],
                                           ),
-                                          // Tampilkan kuantitas hanya untuk pengeluaran (jika qty > 1)
-                                          if (isExpense && tx.qty > 1)
-                                            Text(
-                                              'x${tx.qty}',
-                                              style: const TextStyle(
-                                                fontSize: 14,
-                                                color: Colors.black54,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                          // Tampilkan biaya tambahan/admin untuk pengeluaran dan transfer
-                                          if ((isExpense || isTransfer) &&
-                                              tx.fee != null &&
-                                              tx.fee! > 0)
-                                            Text(
-                                              '(+ Rp ${NumberFormat('#,###').format(tx.fee)})',
-                                              style: const TextStyle(
-                                                fontSize: 13,
-                                                color: Colors.redAccent,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
                                         ],
                                       ),
-                                      if (tx.note != null &&
-                                          tx.note!.isNotEmpty) ...[
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          tx.note!,
-                                          maxLines: 2,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(
-                                            fontSize: 14,
-                                            color: Colors.black87,
-                                          ),
-                                        ),
-                                      ],
                                     ],
                                   ),
-                                ),
-                                const SizedBox(width: 16),
-                                // Akun & Jam (Kanan)
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.end,
-                                  children: [
-                                    Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Text(
-                                          accountInfo,
-                                          style: const TextStyle(
-                                            fontSize: 12,
-                                            color: Colors.black54,
+                                  if (tx.labels.isNotEmpty) ...[
+                                    const SizedBox(height: 12),
+                                    Wrap(
+                                      spacing: 8.0,
+                                      runSpacing: 4.0,
+                                      children: tx.labels.split(',').map((
+                                        label,
+                                      ) {
+                                        return Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 10,
+                                            vertical: 4,
                                           ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Text(
-                                          DateFormat('HH:mm')
-                                              .format(tx.transactionDate),
-                                          style: const TextStyle(
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.black87,
+                                          decoration: BoxDecoration(
+                                            color: Colors.grey[200],
+                                            borderRadius: BorderRadius.circular(
+                                              16,
+                                            ),
                                           ),
-                                        ),
-                                      ],
+                                          child: Text(
+                                            label.trim(),
+                                            style: const TextStyle(
+                                              fontSize: 11,
+                                              color: Colors.black87,
+                                            ),
+                                          ),
+                                        );
+                                      }).toList(),
                                     ),
                                   ],
-                                ),
-                              ],
-                            ),
-                            // Label Capsule (Bawah)
-                            if (tx.labels.isNotEmpty) ...[
-                              const SizedBox(height: 12),
-                              Wrap(
-                                spacing: 8.0,
-                                runSpacing: 4.0,
-                                children: tx.labels.split(',').map((label) {
-                                  return Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 10,
-                                      vertical: 4,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Colors.grey[200],
-                                      borderRadius: BorderRadius.circular(16),
-                                    ),
-                                    child: Text(
-                                      label.trim(),
-                                      style: const TextStyle(
-                                        fontSize: 11,
-                                        color: Colors.black87,
-                                      ),
-                                    ),
-                                  );
-                                }).toList(),
+                                ],
                               ),
-                            ],
+                            ),
                           ],
                         ),
                       ),
