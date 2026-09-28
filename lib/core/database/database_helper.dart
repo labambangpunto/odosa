@@ -78,4 +78,14 @@ class DatabaseHelper {
       )
     ''');
   }
+
+  Future<void> resetDatabase() async {
+    final db = await database;
+    await db.transaction((txn) async {
+      await txn.delete('transaksi');
+      await txn.delete('utang_piutang');
+      await txn.delete('akun');
+      await txn.delete('label');
+    });
+  }
 }

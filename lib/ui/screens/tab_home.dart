@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:fl_chart/fl_chart.dart';
 
 import '../../controllers/home_summary_provider.dart';
 import '../../models/akun.dart';
@@ -137,10 +138,48 @@ class TabHome extends ConsumerWidget {
 
           // Grafik & Analisis (Placeholder)
           const Text(
-            'Grafik & Analisis',
+            'Grafik Bulan Ini',
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 16),
+          SizedBox(
+            height: 200,
+            child:
+                (ringkasanBulanan['pemasukan'] == 0 &&
+                    ringkasanBulanan['pengeluaran'] == 0)
+                ? const Center(
+                    child: Text('Belum ada data transaksi bulan ini.'),
+                  )
+                : PieChart(
+                    PieChartData(
+                      sectionsSpace: 2,
+                      centerSpaceRadius: 40,
+                      sections: [
+                        PieChartSectionData(
+                          color: Colors.green,
+                          value: ringkasanBulanan['pemasukan'],
+                          title: 'In',
+                          radius: 50,
+                          titleStyle: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                        PieChartSectionData(
+                          color: Colors.red,
+                          value: ringkasanBulanan['pengeluaran'],
+                          title: 'Out',
+                          radius: 50,
+                          titleStyle: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+          ),
+          const SizedBox(height: 24),
           Container(
             height: 200,
             decoration: BoxDecoration(

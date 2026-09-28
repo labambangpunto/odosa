@@ -2,14 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../controllers/theme_provider.dart';
+import '../../core/database/database_helper.dart';
+import '../../controllers/master_data_provider.dart';
+import '../../controllers/utang_piutang_provider.dart';
+import '../../core/utils/backup_restore_service.dart';
 import 'form_tambah_akun.dart';
 import 'form_tambah_label.dart';
 
 class TabAtur extends ConsumerWidget {
   const TabAtur({super.key});
 
-  void _prosesResetDatabase(BuildContext context) {
-    // Metode Verifikasi 1: Dialog Konfirmasi Biasa
+  void _prosesResetDatabase(BuildContext context, WidgetRef ref) {
     showDialog(
       context: context,
       builder: (ctx1) => AlertDialog(
@@ -26,8 +29,7 @@ class TabAtur extends ConsumerWidget {
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () {
               Navigator.pop(ctx1);
-              // Metode Verifikasi 2: Mengetik kata sandi/konfirmasi teks
-              _verifikasiTahapDua(context);
+              _verifikasiTahapDua(context, ref);
             },
             child: const Text(
               'Lanjutkan',
@@ -39,7 +41,7 @@ class TabAtur extends ConsumerWidget {
     );
   }
 
-  void _verifikasiTahapDua(BuildContext context) {
+  void _verifikasiTahapDua(BuildContext context, WidgetRef ref) {
     final textController = TextEditingController();
     showDialog(
       context: context,
@@ -65,16 +67,66 @@ class TabAtur extends ConsumerWidget {
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () {
+            onPressed: () async {
               if (textController.text == 'RESET') {
-                Navigator.pop(ctx2);
-                // Logika eksekusi drop table & hapus file SQLite di sini
+                await DatabaseHelper.instance.resetDatabase();
+
+                // Refresh seluruh state management agar UI langsung kosong
+                ref.read(akunListProvider.notifier).loadAkun();
+                ref.read(labelListProvider.notifier).loadLabels();
+                ref.read(transaksiListProvider.notifier).loadTransaksi();
+                ref.read(utangPiutangListProvider.notifier).loadData();
+
+                if (context.mounted) Navigator.pop(ctx2);
               }
             },
             child: const Text(
               'RESET DATABASE',
               style: TextStyle(color: Colors.white),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _tampilkanDialogBackupRestore(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Backup / Restore JSON'),
+        content: const Text('Pilih tindakan yang ingin dilakukan.'),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              final path = await BackupRestoreService.backupJSON();
+              if (context.mounted && path != null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Backup tersimpan di: $path')),
+                );
+              }
+            },
+            child: const Text('Backup'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              final sukses = await BackupRestoreService.restoreJSON();
+              if (sukses) {
+                // Refresh data Riverpod setelah data tertimpa
+                ref.read(akunListProvider.notifier).loadAkun();
+                ref.read(labelListProvider.notifier).loadLabels();
+                ref.read(transaksiListProvider.notifier).loadTransaksi();
+                ref.read(utangPiutangListProvider.notifier).loadData();
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Data berhasil di-restore')),
+                  );
+                }
+              }
+            },
+            child: const Text('Restore'),
           ),
         ],
       ),
@@ -134,12 +186,19 @@ class TabAtur extends ConsumerWidget {
           ListTile(
             leading: const Icon(Icons.backup),
             title: const Text('Backup / Restore JSON'),
-            onTap: () {},
+            onTap: () => _tampilkanDialogBackupRestore(context, ref),
           ),
           ListTile(
             leading: const Icon(Icons.import_export),
             title: const Text('Ekspor CSV'),
-            onTap: () {},
+            onTap: () async {
+              final path = await BackupRestoreService.exportCSV();
+              if (context.mounted && path != null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('CSV berhasil diekspor ke: $path')),
+                );
+              }
+            },
           ),
           const Divider(),
           ListTile(
@@ -149,7 +208,7 @@ class TabAtur extends ConsumerWidget {
               style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
             ),
             subtitle: const Text('Reset seluruh database'),
-            onTap: () => _prosesResetDatabase(context),
+            onTap: () => _prosesResetDatabase(context, ref),
           ),
         ],
       ),
