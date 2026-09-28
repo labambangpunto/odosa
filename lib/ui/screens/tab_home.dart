@@ -5,12 +5,14 @@ import 'package:fl_chart/fl_chart.dart';
 
 import '../../controllers/home_summary_provider.dart';
 import '../../models/akun.dart';
+import '../../controllers/profil_provider.dart';
 
 class TabHome extends ConsumerWidget {
   const TabHome({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final namaPengguna = ref.watch(profilProvider);
     final ringkasanBulanan = ref.watch(ringkasanBulananProvider);
     final dataSaldoAkun = ref.watch(saldoAkunProvider);
 
@@ -30,7 +32,7 @@ class TabHome extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Halo, Pengguna!'), // Greeting
+        title: Text('Halo, $namaPengguna!'),
         actions: [
           IconButton(
             icon: const Icon(Icons.sync),

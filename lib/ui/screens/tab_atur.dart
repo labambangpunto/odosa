@@ -6,6 +6,7 @@ import '../../core/database/database_helper.dart';
 import '../../controllers/master_data_provider.dart';
 import '../../controllers/utang_piutang_provider.dart';
 import '../../core/utils/backup_restore_service.dart';
+import 'form_edit_profil.dart';
 import 'form_tambah_akun.dart';
 import 'form_tambah_label.dart';
 
@@ -144,7 +145,10 @@ class TabAtur extends ConsumerWidget {
           ListTile(
             leading: const Icon(Icons.person),
             title: const Text('Edit Profil'),
-            onTap: () {},
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const FormEditProfil()),
+            ),
           ),
           ListTile(
             leading: const Icon(Icons.cloud),
