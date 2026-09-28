@@ -6,6 +6,7 @@ import '../../core/database/database_helper.dart';
 import '../../controllers/master_data_provider.dart';
 import '../../controllers/utang_piutang_provider.dart';
 import '../../core/utils/backup_restore_service.dart';
+import '../../controllers/auth_provider.dart';
 import 'form_edit_profil.dart';
 import 'form_tambah_akun.dart';
 import 'form_tambah_label.dart';
@@ -92,42 +93,71 @@ class TabAtur extends ConsumerWidget {
   }
 
   void _tampilkanDialogBackupRestore(BuildContext context, WidgetRef ref) {
+    final passphraseController = TextEditingController();
+
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Backup / Restore JSON'),
-        content: const Text('Pilih tindakan yang ingin dilakukan.'),
+        title: const Text('Backup / Restore JSON Terenkripsi'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Masukkan Passphrase (Kunci Enkripsi):'),
+            const SizedBox(height: 8),
+            TextField(
+              controller: passphraseController,
+              obscureText: true,
+              decoration: const InputDecoration(
+                border: OutlineInputBorder(),
+                hintText: 'Minimal 8 karakter disarankan',
+              ),
+            ),
+          ],
+        ),
         actions: [
           TextButton(
             onPressed: () async {
+              final passphrase = passphraseController.text.trim();
+              if (passphrase.isEmpty) return;
               Navigator.pop(ctx);
-              final path = await BackupRestoreService.backupJSON();
+
+              final path = await BackupRestoreService.backupJSON(passphrase);
               if (context.mounted && path != null) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Backup tersimpan di: $path')),
+                  SnackBar(
+                    content: Text('Backup terenkripsi tersimpan di: $path'),
+                  ),
                 );
               }
             },
-            child: const Text('Backup'),
+            child: const Text('Backup Lokal'),
           ),
           ElevatedButton(
             onPressed: () async {
+              final passphrase = passphraseController.text.trim();
+              if (passphrase.isEmpty) return;
               Navigator.pop(ctx);
-              final sukses = await BackupRestoreService.restoreJSON();
-              if (sukses) {
-                // Refresh data Riverpod setelah data tertimpa
-                ref.read(akunListProvider.notifier).loadAkun();
-                ref.read(labelListProvider.notifier).loadLabels();
-                ref.read(transaksiListProvider.notifier).loadTransaksi();
-                ref.read(utangPiutangListProvider.notifier).loadData();
-                if (context.mounted) {
+
+              final sukses = await BackupRestoreService.restoreJSON(passphrase);
+              if (context.mounted) {
+                if (sukses) {
+                  ref.read(akunListProvider.notifier).loadAkun();
+                  ref.read(labelListProvider.notifier).loadLabels();
+                  ref.read(transaksiListProvider.notifier).loadTransaksi();
+                  ref.read(utangPiutangListProvider.notifier).loadData();
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Data berhasil di-restore')),
+                  );
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Gagal: Passphrase salah atau file rusak'),
+                    ),
                   );
                 }
               }
             },
-            child: const Text('Restore'),
+            child: const Text('Restore Lokal'),
           ),
         ],
       ),
@@ -161,9 +191,8 @@ class TabAtur extends ConsumerWidget {
             trailing: Switch(
               value: themeMode == ThemeMode.dark,
               onChanged: (val) {
-                ref.read(themeProvider.notifier).state = val
-                    ? ThemeMode.dark
-                    : ThemeMode.light;
+                ref.read(themeProvider.notifier).state =
+                    val ? ThemeMode.dark : ThemeMode.light;
               },
             ),
           ),
@@ -213,6 +242,36 @@ class TabAtur extends ConsumerWidget {
             ),
             subtitle: const Text('Reset seluruh database'),
             onTap: () => _prosesResetDatabase(context, ref),
+          ),
+          Consumer(
+            builder: (context, ref, child) {
+              final isLoggedIn = ref.watch(authProvider);
+              return ListTile(
+                leading: Icon(isLoggedIn ? Icons.cloud_done : Icons.cloud_off),
+                title: Text(
+                    isLoggedIn ? 'Logout Google Drive' : 'Login Google Drive'),
+                subtitle: Text(isLoggedIn ? 'Terhubung' : 'Belum terhubung'),
+                onTap: () async {
+                  if (isLoggedIn) {
+                    await ref.read(authProvider.notifier).logout();
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Berhasil logout')));
+                    }
+                  } else {
+                    await ref.read(authProvider.notifier).login();
+                    final success = ref.read(authProvider);
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                            content: Text(
+                                success ? 'Berhasil login' : 'Gagal login')),
+                      );
+                    }
+                  }
+                },
+              );
+            },
           ),
         ],
       ),

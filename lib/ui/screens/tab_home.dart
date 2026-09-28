@@ -6,9 +6,105 @@ import 'package:fl_chart/fl_chart.dart';
 import '../../controllers/home_summary_provider.dart';
 import '../../models/akun.dart';
 import '../../controllers/profil_provider.dart';
+import '../../controllers/auth_provider.dart';
+import '../../core/utils/backup_restore_service.dart';
+import '../../core/services/google_drive_service.dart';
+import '../../controllers/master_data_provider.dart';
+import '../../controllers/utang_piutang_provider.dart';
 
 class TabHome extends ConsumerWidget {
   const TabHome({super.key});
+  void _prosesSinkronisasi(BuildContext context, WidgetRef ref) {
+    final isLoggedIn = ref.read(authProvider);
+    if (!isLoggedIn) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text(
+              'Silakan login Google Drive di menu Atur terlebih dahulu.')));
+      return;
+    }
+
+    final passphraseController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Sinkronisasi Google Drive'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Masukkan Passphrase untuk enkripsi/dekripsi:'),
+            const SizedBox(height: 8),
+            TextField(
+              controller: passphraseController,
+              obscureText: true,
+              decoration: const InputDecoration(border: OutlineInputBorder()),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              final passphrase = passphraseController.text.trim();
+              if (passphrase.isEmpty) return;
+              Navigator.pop(ctx);
+
+              // Alur Download
+              final encryptedData = await GoogleDriveService.downloadBackup();
+              if (encryptedData == null) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                      content: Text('Tidak ada data backup di Google Drive.')));
+                }
+                return;
+              }
+
+              final sukses =
+                  await BackupRestoreService.restoreFromEncryptedSync(
+                      encryptedData, passphrase);
+              if (context.mounted) {
+                if (sukses) {
+                  ref.read(akunListProvider.notifier).loadAkun();
+                  ref.read(labelListProvider.notifier).loadLabels();
+                  ref.read(transaksiListProvider.notifier).loadTransaksi();
+                  ref.read(utangPiutangListProvider.notifier).loadData();
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                      content: Text('Sinkronisasi (Download) berhasil.')));
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                      content:
+                          Text('Gagal: Passphrase salah atau data korup.')));
+                }
+              }
+            },
+            child: const Text('Download'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final passphrase = passphraseController.text.trim();
+              if (passphrase.isEmpty) return;
+              Navigator.pop(ctx);
+
+              // Alur Upload
+              final encryptedData =
+                  await BackupRestoreService.getEncryptedBackupForSync(
+                      passphrase);
+              final sukses =
+                  await GoogleDriveService.uploadBackup(encryptedData);
+
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                      content: Text(sukses
+                          ? 'Sinkronisasi (Upload) berhasil.'
+                          : 'Gagal mengunggah data.')),
+                );
+              }
+            },
+            child: const Text('Upload'),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -37,9 +133,7 @@ class TabHome extends ConsumerWidget {
           IconButton(
             icon: const Icon(Icons.sync),
             tooltip: 'Sync Google Drive',
-            onPressed: () {
-              // Logika sinkronisasi Google Drive API
-            },
+            onPressed: () => _prosesSinkronisasi(context, ref),
           ),
         ],
       ),
@@ -146,8 +240,7 @@ class TabHome extends ConsumerWidget {
           const SizedBox(height: 16),
           SizedBox(
             height: 200,
-            child:
-                (ringkasanBulanan['pemasukan'] == 0 &&
+            child: (ringkasanBulanan['pemasukan'] == 0 &&
                     ringkasanBulanan['pengeluaran'] == 0)
                 ? const Center(
                     child: Text('Belum ada data transaksi bulan ini.'),
